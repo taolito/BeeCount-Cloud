@@ -15,13 +15,22 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..database import get_db
 from ..deps import get_current_user, require_any_scopes
-from ..models import User, UserProfile
+from ..models import AuditLog, RefreshToken, User, UserProfile
 from ..schemas import (
     UserProfileAvatarUploadOut,
     UserProfileOut,
     UserProfilePatchRequest,
+    UserProfilePasswordOut,
+    UserProfilePasswordRequest,
 )
-from ..security import SCOPE_APP_WRITE, SCOPE_OPS_WRITE, SCOPE_WEB_READ, SCOPE_WEB_WRITE
+from ..security import (
+    SCOPE_APP_WRITE,
+    SCOPE_OPS_WRITE,
+    SCOPE_WEB_READ,
+    SCOPE_WEB_WRITE,
+    hash_password,
+    verify_password,
+)
 
 router = APIRouter()
 settings = get_settings()
@@ -249,6 +258,49 @@ async def patch_my_profile(
         ai_config=ai_config,
         primary_currency=profile.primary_currency,
     )
+
+
+@router.post("/password", response_model=UserProfilePasswordOut)
+def change_my_password(
+    req: UserProfilePasswordRequest,
+    _scopes: set[str] = Depends(_PATCH_SCOPE_DEP),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserProfilePasswordOut:
+    """普通用户的自助改密端点（管理员代改走 /admin/users/{id}/password）。
+
+    改密后吊销该用户全部 refresh token：其它设备下次刷新即失效，当前设备由前端
+    主动登出，避免拿着旧 access token 继续用。"""
+    if not verify_password(req.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password.",
+        )
+
+    current_user.password_hash = hash_password(req.new_password)
+    now = datetime.now(timezone.utc)
+    revoked = 0
+    for token_row in db.scalars(
+        select(RefreshToken).where(
+            RefreshToken.user_id == current_user.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+    ).all():
+        token_row.revoked_at = now
+        revoked += 1
+
+    db.add(current_user)
+    db.add(
+        AuditLog(
+            user_id=current_user.id,
+            ledger_id=None,
+            action="user_password_change",
+            metadata_json={"revokedRefreshTokens": revoked},
+        )
+    )
+    db.commit()
+    logger.info("profile.password_change user=%s revoked=%d", current_user.id, revoked)
+    return UserProfilePasswordOut(revoked_sessions=revoked)
 
 
 @router.post("/avatar", response_model=UserProfileAvatarUploadOut)

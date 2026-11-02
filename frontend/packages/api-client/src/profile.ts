@@ -1,4 +1,4 @@
-import { API_BASE, authedGet, authedPatch, resolveApiUrl } from './http'
+import { API_BASE, authedGet, authedPatch, authedPost, resolveApiUrl } from './http'
 import { extractApiError } from './errors'
 import type { AIConfig, ProfileAppearance, ProfileMe } from './types'
 
@@ -41,6 +41,24 @@ export async function patchProfileMe(
     ...profile,
     avatar_url: resolveApiUrl(profile.avatar_url)
   }
+}
+
+/**
+ * POST /profile/password — 普通用户自助改密码。
+ *
+ * - `current_password` 是二次确认，server 校验不过回 401
+ * - 成功后 server 吊销该用户**全部** refresh token（其它设备下次刷新即失效），
+ *   当前设备由调用方主动 logout，避免旧 access token 继续可用
+ */
+export async function changeMyPassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ revoked_sessions: number }> {
+  return authedPost<{ revoked_sessions: number }>('/profile/password', token, {
+    current_password: currentPassword,
+    new_password: newPassword
+  })
 }
 
 export type UploadAvatarResponse = ProfileMe & {

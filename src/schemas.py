@@ -125,6 +125,19 @@ class UserProfilePatchRequest(BaseModel):
         return normalized
 
 
+class UserProfilePasswordRequest(BaseModel):
+    """自助改密码。current_password 做二次确认，new_password 至少 6 位，
+    与 register / admin create-user 的口径一致。"""
+
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=6)
+
+
+class UserProfilePasswordOut(BaseModel):
+    # 改密后被吊销的 refresh token 数 = 需要重新登录的会话数。
+    revoked_sessions: int
+
+
 class UserProfileAvatarUploadOut(BaseModel):
     avatar_url: str
     avatar_version: int
