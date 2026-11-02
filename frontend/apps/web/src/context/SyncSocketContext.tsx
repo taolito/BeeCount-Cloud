@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 
-import { getStoredDeviceId, getStoredUserId } from '@beecount/api-client'
+import { appUrl, getStoredDeviceId, getStoredUserId } from '@beecount/api-client'
 
 import { useSyncSocket } from '../hooks/useSyncSocket'
 import { drainPull, startPoller, type SyncChangeEnvelope } from '../state/sync-client'
@@ -75,8 +75,11 @@ const SyncSocketContext = createContext<SyncSocketContextValue | null>(null)
 
 function wsUrl(token: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  const host = window.location.port === '5173' ? `${window.location.hostname}:8080` : window.location.host
-  return `${protocol}://${host}/ws?token=${encodeURIComponent(token)}`
+  // dev(5173) 直连后端 8080，后端挂在根；生产走当前 origin，路径带部署前缀
+  const directToBackend = window.location.port === '5173'
+  const host = directToBackend ? `${window.location.hostname}:8080` : window.location.host
+  const path = directToBackend ? '/ws' : appUrl('ws')
+  return `${protocol}://${host}${path}?token=${encodeURIComponent(token)}`
 }
 
 /**

@@ -8,6 +8,8 @@
  * `'launchQueue' in window` 守一下即可,不影响其他浏览器。
  */
 
+import { appPathStartsWith, appUrl } from '@beecount/api-client'
+
 declare global {
   interface Window {
     /** Chromium-only API,在不支持的浏览器中 undefined */
@@ -46,8 +48,8 @@ export function setupLaunchQueue(): void {
     // 已经在 /app/share-incoming 时不重复跳;否则用 location.assign 走完整
     // navigation 触发 SPA 路由加载 ShareIncomingPage(react-router 在 hydrate
     // 前还没接管,这里用 location 最稳)
-    if (!window.location.pathname.startsWith('/app/share-incoming')) {
-      window.location.assign('/app/share-incoming?source=file-handler')
+    if (!appPathStartsWith(window.location.pathname, '/app/share-incoming')) {
+      window.location.assign(appUrl('/app/share-incoming?source=file-handler'))
     }
   })
 }

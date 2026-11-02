@@ -14,6 +14,7 @@ import {
 } from '@beecount/ui'
 
 import { App } from './App'
+import { APP_BASE, appUrl } from '@beecount/api-client'
 import { WebConfigProvider } from './context/WebConfigContext'
 import { dictionaries } from './i18n'
 import { setupInstallPrompt } from './lib/pwa-install'
@@ -39,7 +40,7 @@ setupInstallPrompt()
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
+      .register(appUrl('sw.js'), { scope: APP_BASE })
       .then((registration) => {
         setupServiceWorkerUpdates(registration)
       })

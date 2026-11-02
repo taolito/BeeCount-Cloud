@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
-import { API_BASE, clearStoredSession, configureHttp, getStoredUserId, refreshAuth } from '@beecount/api-client'
+import { API_BASE, APP_BASENAME, clearStoredSession, configureHttp, getStoredUserId, refreshAuth } from '@beecount/api-client'
 import { useT } from '@beecount/ui'
 
 import { AppShell } from './app/AppShell'
@@ -112,7 +112,7 @@ export function App() {
   }, [t])
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={APP_BASENAME}>
       <AppRoutes />
     </BrowserRouter>
   )

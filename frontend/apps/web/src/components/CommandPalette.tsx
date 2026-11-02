@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   BookOpen,
@@ -108,6 +108,8 @@ const VAL_SHARED_LEDGER_MANAGE = '__action__shared-ledger-manage'
 export function CommandPalette({ open, onClose, onOpenAnnualReport }: CommandPaletteProps) {
   const t = useT()
   const navigate = useNavigate()
+  // 用 router 的 location(已剥离部署前缀 basename),而不是 window.location.pathname
+  const { pathname } = useLocation()
   const { token, logout, profileMe, isAdmin } = useAuth()
   const { ledgers, activeLedgerId, currentLedger, setActiveLedgerId } = useLedgers()
   const { resolved, setMode } = useTheme()
@@ -220,18 +222,18 @@ export function CommandPalette({ open, onClose, onOpenAnnualReport }: CommandPal
   const handleSelectTransaction = useCallback(
     (tx: WorkspaceTransaction) => {
       onClose()
-      if (window.location.pathname !== '/app/transactions') {
+      if (pathname !== '/app/transactions') {
         navigate('/app/transactions')
       }
       setTimeout(() => dispatchOpenDetailTx(tx), 50)
     },
-    [navigate, onClose],
+    [navigate, onClose, pathname],
   )
 
   const handleSelectAccount = useCallback(
     (account: WorkspaceAccount) => {
       onClose()
-      if (window.location.pathname !== '/app/accounts') {
+      if (pathname !== '/app/accounts') {
         navigate('/app/accounts')
       }
       // CommandPalette 跳的目标是 /app/accounts 这种一级页面,跟从页面直接
@@ -241,13 +243,13 @@ export function CommandPalette({ open, onClose, onOpenAnnualReport }: CommandPal
         50,
       )
     },
-    [navigate, onClose],
+    [navigate, onClose, pathname],
   )
 
   const handleSelectTag = useCallback(
     (tag: WorkspaceTag) => {
       onClose()
-      if (window.location.pathname !== '/app/tags') {
+      if (pathname !== '/app/tags') {
         navigate('/app/tags')
       }
       setTimeout(
@@ -255,13 +257,13 @@ export function CommandPalette({ open, onClose, onOpenAnnualReport }: CommandPal
         50,
       )
     },
-    [navigate, onClose],
+    [navigate, onClose, pathname],
   )
 
   const handleSelectCategory = useCallback(
     (cat: WorkspaceCategory) => {
       onClose()
-      if (window.location.pathname !== '/app/categories') {
+      if (pathname !== '/app/categories') {
         navigate('/app/categories')
       }
       setTimeout(
@@ -269,7 +271,7 @@ export function CommandPalette({ open, onClose, onOpenAnnualReport }: CommandPal
         50,
       )
     },
-    [navigate, onClose],
+    [navigate, onClose, pathname],
   )
 
   // 「带搜索词去交易列表」— Enter 默认动作

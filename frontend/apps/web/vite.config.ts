@@ -15,13 +15,21 @@ const pkg = JSON.parse(
 ) as { version: string }
 const appVersion = process.env.VITE_APP_VERSION || pkg.version
 
+// 子路径部署前缀：`VITE_BASE_PATH=/bookkeep/ pnpm build`。
+// vite 的 `base` 负责打包产物里的 /assets/*、public 资源引用与懒加载 chunk
+// 的 preload URL；运行期代码里的其它绝对路径统一从
+// `@beecount/api-client` 的 app-base 模块（读 import.meta.env.BASE_URL）派生。
+const basePath = process.env.VITE_BASE_PATH || '/'
+
 export default defineConfig({
+  base: basePath,
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     // 本地 dev 时 process.env.VITE_APP_VERSION 为空,Vite 自动注入也拿不到值。
     // 显式 define 一遍兜底,保证 import.meta.env.VITE_APP_VERSION 永远有值
     // (本地 dev = pkg.version,生产 = CI 注入的 tag 版本)
-    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion)
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+    'import.meta.env.VITE_BASE_PATH': JSON.stringify(basePath)
   },
   resolve: {
     alias: {
@@ -41,9 +49,12 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      '/api': {
+      // dev 也按前缀代理，这样 `VITE_BASE_PATH=/bookkeep/ pnpm dev` 与生产一致。
+      // 后端始终挂在根，所以转发时剥掉前缀（生产由 nginx 的 proxy_pass 尾部 '/' 完成）。
+      [`${basePath.replace(/\/$/, '')}/api`]: {
         target: 'http://localhost:8080',
-        changeOrigin: true
+        changeOrigin: true,
+        rewrite: (p) => p.slice(basePath.length - 1)
       }
     }
   },

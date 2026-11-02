@@ -1,6 +1,9 @@
 import { extractApiError } from './errors'
+import { appUrl } from './app-base'
 
-export const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api/v1'
+// 未显式配置时跟随部署前缀（子路径 → /bookkeep/api/v1，根路径 → /api/v1）。
+export const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE_URL || appUrl('api/v1')
 
 function resolveApiBaseUrl(): string | null {
   const normalized = `${API_BASE || ''}`.trim()

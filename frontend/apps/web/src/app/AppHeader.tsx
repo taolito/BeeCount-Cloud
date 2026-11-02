@@ -16,6 +16,7 @@ import {
   SelectValue,
   useT,
 } from '@beecount/ui'
+import { appUrl } from '@beecount/api-client'
 import { NAV_GROUPS, type AppSection } from '@beecount/web-features'
 
 import { AvatarDropdown } from '../components/AvatarDropdown'
@@ -116,7 +117,7 @@ export function AppHeader({ onOpenLogs, onOpenAbout }: Props) {
               className="flex items-center gap-1.5 rounded-md transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:gap-2.5"
               aria-label={t('shell.goHome')}
             >
-              <img alt={t('shell.appName')} className="h-7 w-7 shrink-0 md:h-8 md:w-8" src="/branding/logo.svg" />
+              <img alt={t('shell.appName')} className="h-7 w-7 shrink-0 md:h-8 md:w-8" src={appUrl('branding/logo.svg')} />
               <div className="flex flex-col leading-none md:flex-row md:items-baseline md:gap-1.5 md:leading-tight">
                 <p className="whitespace-nowrap text-[13px] font-bold text-foreground md:text-[15px]">
                   {t('shell.appName')}

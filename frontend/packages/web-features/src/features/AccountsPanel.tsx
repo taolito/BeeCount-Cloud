@@ -18,7 +18,7 @@ import {
   useT
 } from '@beecount/ui'
 
-import type { ReadAccount } from '@beecount/api-client'
+import { appUrl, type ReadAccount } from '@beecount/api-client'
 
 import { Amount } from '../components/Amount'
 import { CurrencySelectorTrigger } from '../components/CurrencySelector'
@@ -881,7 +881,7 @@ const TYPE_ICON_URL: Record<string, string> = {
 }
 
 function TypeIcon({ type, size = 28 }: { type: string; size?: number }) {
-  const src = TYPE_ICON_URL[type] || TYPE_ICON_URL.other
+  const src = appUrl(TYPE_ICON_URL[type] || TYPE_ICON_URL.other)
   return (
     <img
       src={src}

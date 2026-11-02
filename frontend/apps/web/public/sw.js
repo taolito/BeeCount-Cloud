@@ -14,7 +14,14 @@
 
 const CACHE_VERSION = 'beecount-web-v3'
 const SHARE_CACHE = 'beecount-share-target-v1'
-const PRECACHE = ['/', '/index.html', '/manifest.webmanifest', '/branding/logo.svg']
+
+// 子路径部署的唯一真相源是 sw.js 自己的地址：挂在 /bookkeep/ 下时
+// self.location 是 https://host/bookkeep/sw.js，根路径部署时是 https://host/sw.js。
+// 所有内部 URL 都相对它解析，同一份产物两种部署都能跑，不需要服务端改写产物。
+const BASE_URL = new URL('./', self.location).href
+const APP_PATHNAME = new URL(BASE_URL).pathname
+const appUrl = (path = '') => new URL(`${path}`.replace(/^\//, ''), BASE_URL).href
+const PRECACHE = [appUrl(''), appUrl('index.html'), appUrl('manifest.webmanifest'), appUrl('branding/logo.svg')]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -56,7 +63,7 @@ self.addEventListener('fetch', (event) => {
   // 必须用独立 cache (SHARE_CACHE),版本升级时不被 activate 清掉。
   if (
     req.method === 'POST' &&
-    url.pathname === '/share-receive' &&
+    url.pathname === `${APP_PATHNAME}share-receive` &&
     url.origin === self.location.origin
   ) {
     event.respondWith(handleShareReceive(req))
@@ -66,7 +73,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return
 
   // /api/* 永远走网络;不缓存任何带 auth 的响应。
-  if (url.pathname.startsWith('/api/')) return
+  if (url.pathname.startsWith(`${APP_PATHNAME}api/`)) return
 
   // 跨域资源(CDN 字体等)也直接走网络,sw 只管自家 origin。
   if (url.origin !== self.location.origin) return
@@ -77,10 +84,10 @@ self.addEventListener('fetch', (event) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone()
-          caches.open(CACHE_VERSION).then((cache) => cache.put('/index.html', copy))
+          caches.open(CACHE_VERSION).then((cache) => cache.put(appUrl('index.html'), copy))
           return res
         })
-        .catch(() => caches.match('/index.html').then((res) => res || caches.match('/')))
+        .catch(() => caches.match(appUrl('index.html')).then((res) => res || caches.match(appUrl(''))))
     )
     return
   }
@@ -133,7 +140,7 @@ async function handleShareReceive(request) {
     for (const file of files) {
       if (file instanceof File) {
         await cache.put(
-          `/share-target/file-${fileIndex}`,
+          appUrl(`share-target/file-${fileIndex}`),
           new Response(file, {
             headers: {
               'Content-Type': file.type || 'application/octet-stream',
@@ -147,17 +154,17 @@ async function handleShareReceive(request) {
     meta.fileCount = fileIndex
 
     await cache.put(
-      '/share-target/meta',
+      appUrl('share-target/meta'),
       new Response(JSON.stringify(meta), {
         headers: { 'Content-Type': 'application/json' }
       })
     )
 
-    return Response.redirect('/app/share-incoming', 303)
+    return Response.redirect(appUrl('app/share-incoming'), 303)
   } catch (err) {
     // 失败也要给个回退,不然浏览器会停在 about:blank
     // eslint-disable-next-line no-console
     console.warn('[sw] share-receive failed', err)
-    return Response.redirect('/app/transactions?share-error=1', 303)
+    return Response.redirect(appUrl('app/transactions?share-error=1'), 303)
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
+import { appUrl } from '@beecount/api-client'
 import { useT, useToast } from '@beecount/ui'
 
 import { setPendingImportFile, setPendingShareText } from '../../lib/pwa-intake'
@@ -44,7 +45,7 @@ export function ShareIncomingPage() {
       try {
         if ('caches' in window) {
           const cache = await caches.open(SHARE_CACHE)
-          const metaRes = await cache.match('/share-target/meta')
+          const metaRes = await cache.match(appUrl('share-target/meta'))
           if (metaRes) {
             try {
               const parsed = await metaRes.json()
@@ -55,7 +56,7 @@ export function ShareIncomingPage() {
               }
               const total = Number(parsed.fileCount || 0)
               for (let i = 0; i < total; i += 1) {
-                const fileRes = await cache.match(`/share-target/file-${i}`)
+                const fileRes = await cache.match(appUrl(`share-target/file-${i}`))
                 if (!fileRes) continue
                 const blob = await fileRes.blob()
                 const name = decodeURIComponent(

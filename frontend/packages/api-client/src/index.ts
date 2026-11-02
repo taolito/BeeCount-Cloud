@@ -1,5 +1,6 @@
 export * from './admin'
 export * from './admin_backup'
+export * from './app-base'
 export * from './ai'
 export * from './aiTest'
 export * from './import'

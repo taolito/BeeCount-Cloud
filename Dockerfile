@@ -19,9 +19,13 @@ COPY frontend/packages/web-features/package.json /workspace/frontend/packages/we
 RUN pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
 
 COPY frontend /workspace/frontend
-ARG VITE_API_BASE_URL=/api/v1
+# VITE_API_BASE_URL 留空时前端自动用 `${VITE_BASE_PATH}api/v1`；
+# 子路径部署只需要传 VITE_BASE_PATH（例：--build-arg VITE_BASE_PATH=/bookkeep/）。
+ARG VITE_API_BASE_URL=
+ARG VITE_BASE_PATH=/
 ARG VERSION=dev
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 ENV VITE_APP_VERSION=$VERSION
 RUN pnpm -C apps/web build
 

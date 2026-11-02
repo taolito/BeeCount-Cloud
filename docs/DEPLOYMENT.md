@@ -122,3 +122,43 @@ before overwriting** step required by WAL mode.
 - Recommended user-facing policy:
   - App keeps collaboration entry visible with beta warnings.
   - Shared member operations remain managed in Web/admin first.
+
+## 9) Sub-path deployment (`https://example.com/bookkeep/`)
+
+The web console is built with a single knob: the Vite `base`. Pass the prefix as a
+build arg and every asset URL, API base, WebSocket path, service worker scope and
+PWA manifest entry is derived from it (runtime code reads it through
+`appUrl()` / `APP_BASE` in `frontend/packages/api-client/src/app-base.ts`).
+
+```bash
+docker build \
+  --build-arg VITE_BASE_PATH=/bookkeep/ \
+  --build-arg VERSION=1.9.0 \
+  -t beecount-cloud:bookkeep .
+```
+
+The backend itself stays mounted at `/`; the reverse proxy is responsible for
+stripping the prefix (trailing `/` on `proxy_pass`). No `sub_filter` rewriting of
+the JS bundle is needed:
+
+```nginx
+location /bookkeep/ {
+    proxy_pass http://127.0.0.1:8869/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+}
+```
+
+Notes:
+
+- `VITE_API_BASE_URL` is optional; leave it empty so the client uses
+  `${VITE_BASE_PATH}api/v1`. The native App talks to the origin root and is
+  unaffected by the web prefix.
+- Local dev supports the same prefix: `VITE_BASE_PATH=/bookkeep/ pnpm -C apps/web dev`
+  (the dev proxy strips the prefix before hitting `localhost:8080`).
+- The service worker resolves its URLs from its own script location, so the same
+  `sw.js` works at the root and under a prefix.

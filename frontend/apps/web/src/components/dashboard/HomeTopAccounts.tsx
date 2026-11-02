@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, useT } from '@beecount/ui'
 
-import type { WorkspaceAccount } from '@beecount/api-client'
+import { appUrl, type WorkspaceAccount } from '@beecount/api-client'
 import { Amount } from '@beecount/web-features'
 
 interface Props {
@@ -78,7 +78,7 @@ export function HomeTopAccounts({ accounts, currency = 'CNY', onSelectAccount }:
           <ul className="space-y-2.5">
             {top.list.map((a, i) => {
               const pct = top.maxCount > 0 ? (a.count / top.maxCount) * 100 : 0
-              const iconUrl = TYPE_ICON_URL[a.type] || TYPE_ICON_URL.other
+              const iconUrl = appUrl(TYPE_ICON_URL[a.type] || TYPE_ICON_URL.other)
               const color = TYPE_COLORS[a.type] || '#64748b'
               return (
                 <li

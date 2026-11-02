@@ -3,6 +3,7 @@ import { HelpCircle, X } from 'lucide-react'
 
 import {
   ApiError,
+  appUrl,
   detectWebClientInfo,
   getStoredDeviceId,
   login,
@@ -106,7 +107,7 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
           {/* 左：品牌叙事 */}
           <div className="hidden space-y-6 lg:block">
             <div className="flex items-center gap-3">
-              <img src="/branding/logo.svg" alt={t('shell.appName')} className="h-12 w-12" />
+              <img src={appUrl('branding/logo.svg')} alt={t('shell.appName')} className="h-12 w-12" />
               <div>
                 <div className="text-2xl font-bold">{t('app.brand')}</div>
                 <div className="text-sm text-muted-foreground">{t('app.subtitle')}</div>
@@ -153,7 +154,7 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
           <div className="w-full">
             <div className="rounded-2xl border border-border/60 bg-card/90 p-8 shadow-xl backdrop-blur-md">
               <div className="mb-6 flex items-center gap-3 lg:hidden">
-                <img src="/branding/logo.svg" alt="" className="h-10 w-10" />
+                <img src={appUrl('branding/logo.svg')} alt="" className="h-10 w-10" />
                 <div>
                   <div className="text-lg font-bold">{t('app.brand')}</div>
                   <div className="text-xs text-muted-foreground">{t('app.subtitle')}</div>
