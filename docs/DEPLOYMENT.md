@@ -162,3 +162,16 @@ Notes:
   (the dev proxy strips the prefix before hitting `localhost:8080`).
 - The service worker resolves its URLs from its own script location, so the same
   `sw.js` works at the root and under a prefix.
+- Hosts whose Docker has no BuildKit/buildx (legacy builder) cannot expand
+  `FROM --platform=$BUILDPLATFORM` and fail with `failed to parse platform : ""`.
+  Strip that flag into a local variant and build with it:
+  `sed 's/FROM --platform=\$BUILDPLATFORM /FROM /' Dockerfile > Dockerfile.native && docker build -f Dockerfile.native ...`
+
+## 10) Self-service password change
+
+`POST /api/v1/profile/password` (`{current_password, new_password}`) lets an ordinary
+user change their own password — admin-driven `POST /admin/users/{id}/password` stays
+the only way to change somebody else's. A successful change revokes every refresh
+token of that user (other devices must sign in again) and writes a
+`user_password_change` audit row; the Web console signs the current device out right
+after, so the still-valid access token cannot keep being used.
