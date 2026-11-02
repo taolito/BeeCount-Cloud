@@ -70,6 +70,7 @@ def test_change_password_revokes_all_sessions_and_switches_credentials():
         # 第二台设备的会话，改密后必须一起失效
         second = _login(client, "pw2@t.com")
         assert second.status_code == 200, second.text
+        second_body = second.json()
 
         hdr = {"Authorization": f"Bearer {first['access_token']}"}
         r = client.post(
@@ -79,7 +80,7 @@ def test_change_password_revokes_all_sessions_and_switches_credentials():
         assert r.status_code == 200, r.text
         assert r.json()["revoked_sessions"] >= 2
 
-        for session in (first, second):
+        for session in (first, second_body):
             rr = client.post(
                 "/api/v1/auth/refresh", json={"refresh_token": session["refresh_token"]}
             )
