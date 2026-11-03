@@ -12,7 +12,10 @@
  * API 请求（/api/*）绕过 SW —— 直接去网络，避免缓存 token/敏感数据。
  */
 
-const CACHE_VERSION = 'beecount-web-v3'
+// 占位符由 vite.config.ts 的 beecount:sw-cache-version 插件在构建时替换成
+// `beecount-web-<入口 chunk hash>`（dev 下是 beecount-web-dev）。产物变了的缓存名
+// 就变，activate 会清掉上一版缓存，用户不必等 SW 逐条网络回填也不会滞留旧包。
+const CACHE_VERSION = '__SW_CACHE_VERSION__'
 const SHARE_CACHE = 'beecount-share-target-v1'
 
 // 子路径部署的唯一真相源是 sw.js 自己的地址：挂在 /bookkeep/ 下时

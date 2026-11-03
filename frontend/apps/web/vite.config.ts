@@ -1,7 +1,7 @@
 import path from 'node:path'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -21,8 +21,50 @@ const appVersion = process.env.VITE_APP_VERSION || pkg.version
 // `@beecount/api-client` 的 app-base 模块（读 import.meta.env.BASE_URL）派生。
 const basePath = process.env.VITE_BASE_PATH || '/'
 
+// sw.js 属于 public 资源，vite 原样拷贝、不进模块图，所以里面读不到 import.meta.env。
+// 这里在产物落盘后把占位符替换成入口 chunk 的 content hash：代码一变 → 入口 hash 变
+// （entry 里含各懒加载 chunk 的文件名）→ SW 缓存名变 → activate 清掉旧缓存。
+// 写死 'beecount-web-vN' 的代价是改代码忘了手动升 N，用户会一直读到旧缓存包。
+const SW_PLACEHOLDER = '__SW_CACHE_VERSION__'
+const SW_TEMPLATE = path.resolve(__dirname, 'public/sw.js')
+
+function swCacheVersion(): Plugin {
+  let outDir = path.resolve(__dirname, 'dist')
+  let cacheVersion = 'beecount-web-dev'
+  const render = (src: string) => src.replace(SW_PLACEHOLDER, cacheVersion)
+  return {
+    name: 'beecount:sw-cache-version',
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir)
+    },
+    generateBundle(_options, bundle) {
+      const entry = Object.keys(bundle).find((file) => /(^|\/)index-[^/]+\.js$/.test(file))
+      const hash = entry ? /index-([^./]+)\.js$/.exec(entry)?.[1] : undefined
+      // 拿不到入口 hash 就退回时间戳：宁可每次构建都换缓存名，也不能让版本停在旧值。
+      cacheVersion = `beecount-web-${hash || Date.now()}`
+    },
+    // vite 先写 bundle、再拷 public，最后才跑 closeBundle，所以此时 dist/sw.js 已存在。
+    closeBundle() {
+      const target = path.join(outDir, 'sw.js')
+      if (!existsSync(target)) return
+      const src = readFileSync(target, 'utf-8')
+      if (src.includes(SW_PLACEHOLDER)) writeFileSync(target, render(src))
+    },
+    configureServer(server) {
+      // dev 下 public/sw.js 由静态中间件原样返回，这里抢先渲染同一份模板，
+      // 让 dev 与生产的 sw.js 只差一个版本号。
+      server.middlewares.use((req, res, next) => {
+        if (!/(^|\/)sw\.js(\?|$)/.test(req.url || '')) return next()
+        res.setHeader('Content-Type', 'application/javascript')
+        res.end(render(readFileSync(SW_TEMPLATE, 'utf-8')))
+      })
+    }
+  }
+}
+
 export default defineConfig({
   base: basePath,
+  plugins: [swCacheVersion()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
     // 本地 dev 时 process.env.VITE_APP_VERSION 为空,Vite 自动注入也拿不到值。
