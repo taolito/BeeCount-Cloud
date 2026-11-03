@@ -20,6 +20,21 @@ function resolveApiBaseUrl(): string | null {
   }
 }
 
+// 后端拼 URL 时用的是自己的 settings.api_prefix,不带部署子路径。
+const SERVER_API_PREFIX = '/api/v1'
+
+/** 从 API base 反推部署前缀:`/bookkeep/api/v1` → `/bookkeep`,根部署 → ''。 */
+export function deployPrefixOf(apiBase: string): string {
+  try {
+    const pathname = new URL(apiBase).pathname
+    return pathname.endsWith(SERVER_API_PREFIX)
+      ? pathname.slice(0, -SERVER_API_PREFIX.length)
+      : ''
+  } catch (_) {
+    return ''
+  }
+}
+
 export function resolveApiUrl(value?: string | null): string | null {
   const normalized = `${value || ''}`.trim()
   if (!normalized) return null
@@ -28,8 +43,14 @@ export function resolveApiUrl(value?: string | null): string | null {
   } catch (_) {
     const base = resolveApiBaseUrl()
     if (!base) return normalized
+    // 头像/附件这类 URL 是后端下发的根绝对路径(/api/v1/profile/avatar/x)。
+    // `new URL('/api/v1/...', base)` 只取 base 的 origin,子路径部署会把
+    // /bookkeep 前缀吃掉 → 图片 404。先把部署前缀补回去再解析。
+    const candidate = normalized.startsWith(SERVER_API_PREFIX)
+      ? `${deployPrefixOf(base)}${normalized}`
+      : normalized
     try {
-      return new URL(normalized, base).toString()
+      return new URL(candidate, base).toString()
     } catch (_) {
       return normalized
     }
