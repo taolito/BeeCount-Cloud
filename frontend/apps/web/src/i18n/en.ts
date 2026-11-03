@@ -747,8 +747,8 @@ const en = {
   'home.topAccounts.empty': 'No active accounts',
   'home.topAccounts.countUnit': 'tx',
 
-  'home.heatmap.title': '{year} Monthly expense heatmap',
-  'home.heatmap.hint': 'Darker = higher expense',
+  'home.heatmap.title': '{year} Monthly balance heatmap',
+  'home.heatmap.hint': 'Green = surplus / red = deficit; darker = larger gap',
   'home.heatmap.monthLabel': '{month}',
   'home.heatmap.tooltipIncome': 'Income {value}',
   'home.heatmap.tooltipExpense': 'Expense {value}',

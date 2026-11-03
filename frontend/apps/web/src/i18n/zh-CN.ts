@@ -290,8 +290,8 @@ const zhCN = {
   'home.topAccounts.countUnit': '笔',
 
   // HomeYearHeatmap
-  'home.heatmap.title': '{year} 年月度支出热力',
-  'home.heatmap.hint': '颜色越深 = 支出越大',
+  'home.heatmap.title': '{year} 年月度结余热力',
+  'home.heatmap.hint': '绿=有结余 / 红=入不敷出，颜色越深差额越大',
   'home.heatmap.monthLabel': '{month}月',
   'home.heatmap.tooltipIncome': '收入 {value}',
   'home.heatmap.tooltipExpense': '支出 {value}',

@@ -710,8 +710,8 @@ const zhTW = {
   'home.topAccounts.empty': '暫無活躍帳戶',
   'home.topAccounts.countUnit': '筆',
 
-  'home.heatmap.title': '{year} 年月度支出熱力',
-  'home.heatmap.hint': '顏色越深 = 支出越大',
+  'home.heatmap.title': '{year} 年月度結餘熱力',
+  'home.heatmap.hint': '綠=有結餘 / 紅=入不敷出，顏色越深差異越大',
   'home.heatmap.monthLabel': '{month}月',
   'home.heatmap.tooltipIncome': '收入 {value}',
   'home.heatmap.tooltipExpense': '支出 {value}',

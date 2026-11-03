@@ -61,7 +61,9 @@ export function MonthlyTrendBars({ data }: Props) {
   }
 
   return (
-    <Card className="bc-panel overflow-hidden">
+    // bc-income-green:这张图固定「绿=收入 / 红=支出」,不跟用户的 收支配色
+    // 偏好走 —— 走势看的是"赚了多少 / 花了多少",中式配色会把两者读反。
+    <Card className="bc-panel bc-income-green overflow-hidden">
       <CardHeader>
         <CardTitle className="text-base">{t('home.trendBars.title')}</CardTitle>
       </CardHeader>

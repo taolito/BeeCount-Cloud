@@ -11,8 +11,9 @@ interface Props {
 }
 
 /**
- * 12 个月支出热力条：用当月支出的相对大小染色，把"今年哪几个月花得最多"
- * 一眼能看出。对比之下 MonthlyTrendBars 只展示最近 6 期，这里补齐整年。
+ * 12 个月结余热力条：按当月结余(income - expense)的正负染色 —— 结余为正走
+ * income token(绿)、为负走 expense token(红),深浅按 |结余| 相对全年最大 |结余|
+ * 线性递增。对比之下 MonthlyTrendBars 只展示最近 6 期，这里补齐整年。
  */
 export function HomeYearHeatmap({ yearSeries, currency = 'CNY' }: Props) {
   const t = useT()
@@ -23,28 +24,36 @@ export function HomeYearHeatmap({ yearSeries, currency = 'CNY' }: Props) {
       byBucket.set(it.bucket, { income: it.income || 0, expense: it.expense || 0 })
     }
     const rows = []
-    let maxExpense = 0
+    let maxAbsBalance = 0
     for (let m = 0; m < 12; m += 1) {
       const key = `${year}-${String(m + 1).padStart(2, '0')}`
       const rec = byBucket.get(key) || { income: 0, expense: 0 }
-      if (rec.expense > maxExpense) maxExpense = rec.expense
+      const balance = rec.income - rec.expense
+      if (Math.abs(balance) > maxAbsBalance) maxAbsBalance = Math.abs(balance)
       rows.push({
         monthIndex: m,
         monthLabel: t('home.heatmap.monthLabel').replace('{month}', String(m + 1)),
         income: rec.income,
         expense: rec.expense,
-        balance: rec.income - rec.expense
+        hasData: rec.income > 0 || rec.expense > 0,
+        balance
       })
     }
-    return { rows, maxExpense, year }
+    return { rows, maxAbsBalance, year }
   }, [yearSeries, t])
+
+  // 格子里显示结余;负数由 toLocaleString 自带符号,正数补 '+' 让"赚/亏"一眼分得开。
+  const fmtSigned = (v: number) =>
+    `${v > 0 ? '+' : ''}${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
   return (
     // overflow-visible:tooltip 通过 -translate-y-full 向上展开会越出 Card 边界,
     // overflow-hidden 会把顶行(1-6 月)的 tooltip clip 掉,只剩底边像被截断的卡片
     // 漂出来(2026-05-16 用户上报)。bc-panel 圆角靠 border-radius,跟 overflow
     // 无关,改 visible 不破圆角。
-    <Card className="bc-panel overflow-visible">
+    // bc-income-green:这张图的颜色语义固定「绿=有结余 / 红=入不敷出」,不跟
+    // 用户的 收支配色 偏好走(偏好一翻会把"亏"显示成绿色,读起来正好反)。
+    <Card className="bc-panel bc-income-green overflow-visible">
       <CardHeader className="flex flex-row items-end justify-between">
         <CardTitle className="text-base">
           {t('home.heatmap.title').replace('{year}', String(data.year))}
@@ -58,11 +67,15 @@ export function HomeYearHeatmap({ yearSeries, currency = 'CNY' }: Props) {
              代价是卡片高度翻倍 —— 但首页下方本来就空着,换个立体感反而好看。 */}
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
           {data.rows.map((row) => {
-            const pct = data.maxExpense > 0 ? row.expense / data.maxExpense : 0
+            // 深浅 = |结余| 占全年最大 |结余| 的比例;0.18 是下限,保证最小的月份
+            // 也看得出颜色(跟旧版支出热力的读法一致)。
+            const ratio =
+              data.maxAbsBalance > 0 ? Math.abs(row.balance) / data.maxAbsBalance : 0
+            const varName = row.balance >= 0 ? '--income-rgb' : '--expense-rgb'
             const bg =
-              pct === 0
+              ratio === 0
                 ? 'rgba(148,163,184,0.12)'
-                : `hsl(0 72% 60% / ${Math.max(0.18, pct).toFixed(2)})`
+                : `rgb(var(${varName}) / ${Math.max(0.18, ratio).toFixed(2)})`
             const isCurrent =
               row.monthIndex === new Date().getMonth() &&
               data.year === new Date().getFullYear()
@@ -80,20 +93,18 @@ export function HomeYearHeatmap({ yearSeries, currency = 'CNY' }: Props) {
                     去掉。 */}
                 <span
                   className={`text-[11px] font-semibold leading-tight ${
-                    pct > 0.5 ? 'text-white' : 'text-foreground'
+                    ratio > 0.5 ? 'text-white' : 'text-foreground'
                   }`}
                 >
                   {row.monthLabel}
                 </span>
-                {row.expense > 0 ? (
+                {row.hasData ? (
                   <span
                     className={`truncate font-mono text-[11px] leading-tight tabular-nums ${
-                      pct > 0.5 ? 'text-white/90' : 'text-muted-foreground'
+                      ratio > 0.5 ? 'text-white/90' : 'text-muted-foreground'
                     }`}
                   >
-                    {row.expense.toLocaleString(undefined, {
-                      maximumFractionDigits: 0
-                    })}
+                    {fmtSigned(row.balance)}
                   </span>
                 ) : (
                   <span className="text-[11px] leading-tight text-muted-foreground">—</span>

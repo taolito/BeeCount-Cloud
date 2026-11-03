@@ -98,6 +98,16 @@
       0 1px 0 0 hsl(var(--primary) / 0.08) inset;
   }
 
+  /* 收支颜色固定为「绿=收入/结余为正、红=支出/结余为负」的容器。
+     首页月度收支走势 + 年度热力用它,不跟随 html[data-income-color] 的用户偏好
+     (中式红收绿支) —— 这两个图要的是"赚/亏"的语义色,偏好一翻就会读反。
+     token 仍复用 --income-rgb / --expense-rgb,深色模式和热力透明度都用
+     rgb(var(--x) / a) 取,不在组件里散落字面量。 */
+  .bc-income-green {
+    --income-rgb: 16 185 129;  /* emerald-500 */
+    --expense-rgb: 239 68 68;  /* rose-500    */
+  }
+
   .bc-toolbar {
     @apply rounded-xl border border-border/60 bg-muted/30 p-3;
   }
