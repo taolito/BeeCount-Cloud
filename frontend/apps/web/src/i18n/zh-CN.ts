@@ -291,17 +291,21 @@ const zhCN = {
 
   // HomeYearHeatmap
   'home.heatmap.title': '{year} 年月度结余热力',
-  'home.heatmap.hint': '绿=有结余 / 红=入不敷出，颜色越深差额越大',
+  'home.heatmap.hint': '结余为正/为负分色，颜色越深差额越大',
   'home.heatmap.monthLabel': '{month}月',
   'home.heatmap.tooltipIncome': '收入 {value}',
   'home.heatmap.tooltipExpense': '支出 {value}',
   'home.heatmap.tooltipBalance': '结余 {value}',
 
-  // HomeMonthCategoryDonut
-  'home.monthDonut.title': '本月支出分类',
-  'home.monthDonut.empty': '本月暂无支出记录',
-  'home.monthDonut.center': '本月支出',
-  'home.monthDonut.total': '合计',
+  // HomeMonthCategoryDonuts
+  'home.monthDonut.title': '月度收支分类',
+  'home.monthDonut.emptyExpense': '该月暂无支出记录',
+  'home.monthDonut.emptyIncome': '该月暂无收入记录',
+  'home.monthDonut.expenseCenter': '支出',
+  'home.monthDonut.incomeCenter': '收入',
+  'home.monthDonut.prevMonth': '上一月',
+  'home.monthDonut.nextMonth': '下一月',
+  'home.monthDonut.loading': '加载中…',
   'home.monthDonut.categoryCount': '{count} 个分类',
   'home.monthDonut.uncategorized': '未分类',
   'home.monthDonut.other': '其他',

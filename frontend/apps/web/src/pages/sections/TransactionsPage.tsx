@@ -315,9 +315,6 @@ export function TransactionsPage() {
   // 账本级 counts（对齐 mobile `getCountsForLedger`）——首页 Hero "记账笔数 /
   // 记账天数" 的权威来源，跟 analytics scope 没关系。
   // ledgerCounts 已迁到 OverviewPage。
-  // 本月支出分类排行（scope=month&metric=expense 的 category_ranks），给
-  // HomeMonthCategoryDonut 用。
-  // currentMonthCategoryRanks 已迁到 OverviewPage。
   // profileMe / isAdminUser / isAdminResolved 已由 AppShell 通过 AuthContext 注入,
   // 不再在 AppPage 本地维护。profileDisplayName 还留下是因为 display_name 编辑
   // 表单用,后续跟 SettingsProfilePage 一起迁走。

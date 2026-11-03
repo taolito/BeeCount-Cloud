@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -64,9 +64,15 @@ export function OverviewPage() {
     `overview:${bucket}:monthSeries`,
     []
   )
-  const [currentMonthCategoryRanks, setCurrentMonthCategoryRanks] = usePageCache<
+  // 月度收支分类卡的月份 —— 自然月 YYYY-MM，默认本月，支出环与收入环共用。
+  // 它只影响这张卡，顶部「本月」指标仍走 currentMonth* (按账本 month_start_day 口径)。
+  const [donutPeriod, setDonutPeriod] = useState(() => periodLabel(new Date(), 1))
+  const [monthExpenseRanks, setMonthExpenseRanks] = usePageCache<
     WorkspaceAnalytics['category_ranks']
-  >(`overview:${bucket}:monthCategoryRanks`, [])
+  >(`overview:${bucket}:monthExpenseRanks`, [])
+  const [monthIncomeRanks, setMonthIncomeRanks] = usePageCache<
+    WorkspaceAnalytics['category_ranks']
+  >(`overview:${bucket}:monthIncomeRanks`, [])
   const [currentYearSummary, setCurrentYearSummary] = usePageCache<
     WorkspaceAnalytics['summary'] | null
   >(`overview:${bucket}:yearSummary`, null)
@@ -203,7 +209,6 @@ export function OverviewPage() {
     if (rMonthly.status === 'fulfilled') {
       setCurrentMonthSummary(rMonthly.value.summary)
       setCurrentMonthSeries(rMonthly.value.series || [])
-      setCurrentMonthCategoryRanks(rMonthly.value.category_ranks || [])
     }
     if (rAll.status === 'fulfilled') {
       setAllTimeSummary(rAll.value.summary)
@@ -223,6 +228,54 @@ export function OverviewPage() {
     }
   }, [token, activeLedgerId, currentLedger])
 
+  // 月度收支分类双环：选中月份的支出 + 收入排行。跟 loadAnalytics 分开是因为
+  // 月份是用户可改的视图状态，不该连带重拉 year/all 那几个请求。
+  // seq 用来丢弃被取代的旧响应：连点两次「上一月」时先发的那次可能后回来，
+  // 不丢弃的话会把上一个月（不是当前选中的那个）的数据盖回模块里。
+  const monthRanksSeq = useRef(0)
+  const [monthRanksLoading, setMonthRanksLoading] = useState(false)
+  const loadMonthCategoryRanks = useCallback(async () => {
+    const seq = ++monthRanksSeq.current
+    if (!activeLedgerId) {
+      setMonthExpenseRanks([])
+      setMonthIncomeRanks([])
+      setMonthRanksLoading(false)
+      return
+    }
+    setMonthRanksLoading(true)
+    try {
+      const tzOffsetMinutes = -new Date().getTimezoneOffset()
+      const results = await Promise.allSettled([
+        fetchWorkspaceAnalytics(token, {
+          scope: 'month',
+          metric: 'expense',
+          period: donutPeriod,
+          ledgerId: activeLedgerId,
+          tzOffsetMinutes,
+        }),
+        fetchWorkspaceAnalytics(token, {
+          scope: 'month',
+          metric: 'income',
+          period: donutPeriod,
+          ledgerId: activeLedgerId,
+          tzOffsetMinutes,
+        }),
+      ])
+      if (seq !== monthRanksSeq.current) return
+      const [rExpense, rIncome] = results
+      if (rExpense.status === 'fulfilled') {
+        setMonthExpenseRanks(rExpense.value.category_ranks || [])
+      }
+      if (rIncome.status === 'fulfilled') {
+        setMonthIncomeRanks(rIncome.value.category_ranks || [])
+      }
+    } finally {
+      if (seq === monthRanksSeq.current) setMonthRanksLoading(false)
+    }
+    // setMonthExpenseRanks / setMonthIncomeRanks 是 usePageCache 稳定 setter
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, activeLedgerId, donutPeriod])
+
   useEffect(() => {
     void loadAccountsAndTags()
   }, [loadAccountsAndTags])
@@ -230,6 +283,10 @@ export function OverviewPage() {
   useEffect(() => {
     void loadAnalytics()
   }, [loadAnalytics])
+
+  useEffect(() => {
+    void loadMonthCategoryRanks()
+  }, [loadMonthCategoryRanks])
 
   useEffect(() => {
     void loadBudgets()
@@ -243,6 +300,7 @@ export function OverviewPage() {
   // 标签 + 预算。budget 跟随 tx 变化(used 是 tx 累加)。
   useSyncRefresh(() => {
     void loadAnalytics()
+    void loadMonthCategoryRanks()
     void loadAccountsAndTags()
     void loadBudgets()
     void loadCategories()
@@ -299,7 +357,11 @@ export function OverviewPage() {
       tags={tags}
       currentMonthSummary={currentMonthSummary}
       currentMonthSeries={currentMonthSeries}
-      currentMonthCategoryRanks={currentMonthCategoryRanks}
+      monthExpenseRanks={monthExpenseRanks}
+      monthIncomeRanks={monthIncomeRanks}
+      monthDonutPeriod={donutPeriod}
+      monthDonutLoading={monthRanksLoading}
+      onMonthDonutPeriodChange={setDonutPeriod}
       currentYearSummary={currentYearSummary}
       currentYearSeries={currentYearSeries}
       allTimeSummary={allTimeSummary}

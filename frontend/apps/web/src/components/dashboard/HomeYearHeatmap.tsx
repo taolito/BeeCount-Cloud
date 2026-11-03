@@ -51,9 +51,7 @@ export function HomeYearHeatmap({ yearSeries, currency = 'CNY' }: Props) {
     // overflow-hidden 会把顶行(1-6 月)的 tooltip clip 掉,只剩底边像被截断的卡片
     // 漂出来(2026-05-16 用户上报)。bc-panel 圆角靠 border-radius,跟 overflow
     // 无关,改 visible 不破圆角。
-    // bc-income-green:这张图的颜色语义固定「绿=有结余 / 红=入不敷出」,不跟
-    // 用户的 收支配色 偏好走(偏好一翻会把"亏"显示成绿色,读起来正好反)。
-    <Card className="bc-panel bc-income-green overflow-visible">
+    <Card className="bc-panel overflow-visible">
       <CardHeader className="flex flex-row items-end justify-between">
         <CardTitle className="text-base">
           {t('home.heatmap.title').replace('{year}', String(data.year))}
