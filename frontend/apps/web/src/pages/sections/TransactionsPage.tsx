@@ -1767,8 +1767,8 @@ export function TransactionsPage() {
                 canWrite={Boolean(canWriteTx)}
                 // §7 共享账本:tx 列表当前 ledger 若是共享账本,每行尾巴
                 // 显示"XX 创建 · YY 编辑"chip(server 已注入 created_by_* +
-                // last_edited_by_* 字段)。currentUserId 用来过滤"全是自己"
-                // 的 tx 不显示 chip。
+                // last_edited_by_* 字段)。currentUserId 只用来把"自己"那侧的
+                // 名字换成「我」,头像一律显示。
                 showCreator={Boolean(txContextLedger?.is_shared)}
                 currentUserId={profileMe?.user_id || null}
                 dictionariesLoading={txDictionaryLoading}

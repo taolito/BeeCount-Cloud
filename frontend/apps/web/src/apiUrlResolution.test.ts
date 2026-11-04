@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { deployPrefixOf, resolveApiUrl } from '@beecount/api-client'
+import {
+  deployPrefixOf,
+  fetchWorkspaceTransactions,
+  resolveApiUrl
+} from '@beecount/api-client'
 
 const ORIGIN = 'https://luckyluck.top'
 
@@ -43,5 +47,43 @@ describe('resolveApiUrl', () => {
     expect(resolveApiUrl('https://cdn.example.com/a.png')).toBe('https://cdn.example.com/a.png')
     expect(resolveApiUrl('')).toBeNull()
     expect(resolveApiUrl(null)).toBeNull()
+  })
+})
+
+// 交易行右下角的参与者头像组会同时用 created_by_avatar_url 和
+// last_edited_by_avatar_url；后端两个字段都是根绝对路径，少解析一个就会在
+// 子路径部署下变成 404 的空白头像。
+describe('交易行头像字段归一', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('creator 与 editor 两个头像 URL 都被解析', async () => {
+    vi.stubGlobal('window', { location: { origin: ORIGIN } })
+    const payload = {
+      items: [
+        {
+          sync_id: 'tx1',
+          created_by_avatar_url: '/api/v1/profile/avatar/u1?v=1',
+          last_edited_by_avatar_url: '/api/v1/profile/avatar/u2?v=2'
+        }
+      ],
+      total: 1,
+      limit: 1,
+      offset: 0
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+    )
+
+    const page = await fetchWorkspaceTransactions('fake-token')
+    expect(page.items[0].created_by_avatar_url).toBe(`${ORIGIN}/api/v1/profile/avatar/u1?v=1`)
+    expect(page.items[0].last_edited_by_avatar_url).toBe(`${ORIGIN}/api/v1/profile/avatar/u2?v=2`)
   })
 })

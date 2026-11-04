@@ -45,7 +45,8 @@ export async function fetchReadTransactions(
   )
   return rows.map((row) => ({
     ...row,
-    created_by_avatar_url: resolveApiUrl(row.created_by_avatar_url)
+    created_by_avatar_url: resolveApiUrl(row.created_by_avatar_url),
+    last_edited_by_avatar_url: resolveApiUrl(row.last_edited_by_avatar_url)
   }))
 }
 
@@ -173,7 +174,8 @@ export async function fetchWorkspaceTransactions(
   if (Array.isArray(response)) {
     const normalizedItems = response.map((item) => ({
       ...item,
-      created_by_avatar_url: resolveApiUrl(item.created_by_avatar_url)
+      created_by_avatar_url: resolveApiUrl(item.created_by_avatar_url),
+      last_edited_by_avatar_url: resolveApiUrl(item.last_edited_by_avatar_url)
     }))
     return {
       items: normalizedItems,
@@ -187,7 +189,8 @@ export async function fetchWorkspaceTransactions(
     ...response,
     items: (response.items || []).map((item) => ({
       ...item,
-      created_by_avatar_url: resolveApiUrl(item.created_by_avatar_url)
+      created_by_avatar_url: resolveApiUrl(item.created_by_avatar_url),
+      last_edited_by_avatar_url: resolveApiUrl(item.last_edited_by_avatar_url)
     }))
   }
 }

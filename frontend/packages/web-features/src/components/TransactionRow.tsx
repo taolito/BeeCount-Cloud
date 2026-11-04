@@ -344,14 +344,13 @@ export function TransactionRow({
 /**
  * 共享账本 tx tile 右下角"参与者"头像组。
  *
- * 显示规则(按用户最新意图):
- * - 都是自己(creator + editor) → 不显示
- * - 同一人参与(creator == editor):
- *     - 是自己 → 不显示
- *     - 别人 → 显示 1 个头像,tooltip 「{name} 创建并编辑」
- * - 两个不同人参与:显示 2 个头像,各 tooltip
- *     - 第 1 个:「{creator} 创建」(自己则 tooltip 写"我 创建")
+ * 显示规则:参与人就显示头像，包括自己（以前自己创建+自己编辑时整组不渲染，
+ * 看起来像"只有别人的头像"）。
+ * - 同一人参与(creator == editor) → 1 个头像,tooltip 「{name} 创建并编辑」
+ * - 两个不同人参与 → 2 个头像,各自 tooltip
+ *     - 第 1 个:「{creator} 创建」
  *     - 第 2 个:「{editor} 最后编辑」
+ * - 是自己时 name 用「我」。
  * - 头像:server avatar_url 失败 fallback 首字母色块。hover 才显示 label
  *   减少视觉噪声;label 走 native title (浏览器 tooltip)。
  */
@@ -370,20 +369,22 @@ function CreatorEditorChip({
 
   const isCreatorMe = !!currentUserId && creatorUid === currentUserId
   const isEditorMe = !!currentUserId && editorUid === currentUserId
-  if (isCreatorMe && isEditorMe) return null
 
-  const creatorName =
-    row.created_by_display_name ||
-    (row.created_by_email || '').split('@')[0] ||
-    '?'
-  const editorName =
-    row.last_edited_by_display_name ||
-    (row.last_edited_by_email || '').split('@')[0] ||
-    creatorName
+  const meName = t('sharedLedger.me')
+  const creatorName = isCreatorMe
+    ? meName
+    : row.created_by_display_name ||
+      (row.created_by_email || '').split('@')[0] ||
+      '?'
+  const editorName = isEditorMe
+    ? meName
+    : row.last_edited_by_display_name ||
+      (row.last_edited_by_email || '').split('@')[0] ||
+      creatorName
 
   const sameUser = creatorUid && editorUid && creatorUid === editorUid
 
-  // 同一人参与(此时必然不是自己,前面已 early-return) → 单头像 + 创建并编辑 tooltip
+  // 同一人参与 → 单头像 + 创建并编辑 tooltip
   if (sameUser) {
     const title = t('sharedLedger.tileCreatedAndEditedBy', {
       name: creatorName,
