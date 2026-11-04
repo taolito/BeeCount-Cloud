@@ -10,20 +10,23 @@ import {
   applyTheme,
   initialLocale,
   initialPrimaryColor,
-  initialThemeMode
+  initialThemeMode,
+  type LocaleDictionaries
 } from '@beecount/ui'
 
 import { App } from './App'
 import { APP_BASE, appUrl } from '@beecount/api-client'
 import { WebConfigProvider } from './context/WebConfigContext'
-import { dictionaries } from './i18n'
+import { baseDictionaries, loadDictionaries } from './i18n'
 import { setupInstallPrompt } from './lib/pwa-install'
 import { setupLaunchQueue } from './lib/pwa-launch'
 import { setupServiceWorkerUpdates } from './lib/pwa-sw-update'
 import './styles.css'
 
+const bootLocale = initialLocale()
+
 applyTheme(initialThemeMode())
-applyDocumentLocale(initialLocale())
+applyDocumentLocale(bootLocale)
 // 启动时立刻 apply primary color，避免 React hydration 前首屏闪烁默认金色。
 applyPrimaryColor(initialPrimaryColor())
 
@@ -52,18 +55,26 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <LocaleProvider dictionaries={dictionaries}>
-      <ThemeProvider>
-        <PrimaryColorProvider>
-          <ToastProvider>
-            <WebConfigProvider>
-              <App />
-            </WebConfigProvider>
-          </ToastProvider>
-        </PrimaryColorProvider>
-      </ThemeProvider>
-    </LocaleProvider>
-  </React.StrictMode>
-)
+function renderApp(dictionaries: LocaleDictionaries) {
+  createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <LocaleProvider dictionaries={dictionaries} loadDictionaries={loadDictionaries}>
+        <ThemeProvider>
+          <PrimaryColorProvider>
+            <ToastProvider>
+              <WebConfigProvider>
+                <App />
+              </WebConfigProvider>
+            </ToastProvider>
+          </PrimaryColorProvider>
+        </ThemeProvider>
+      </LocaleProvider>
+    </React.StrictMode>
+  )
+}
+
+// zh-CN 语言包静态打进入口,直接渲染;en / zh-TW 先取回自己的语言包再挂首帧,
+// 免得这两类用户先看到一屏简体中文再整体换语言。
+loadDictionaries(bootLocale).then((extra) => {
+  renderApp(extra ? { ...baseDictionaries, ...extra } : baseDictionaries)
+})

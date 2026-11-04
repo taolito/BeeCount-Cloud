@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { ReadTransaction } from '@beecount/api-client'
 import { LocaleProvider } from '@beecount/ui'
 import { TransactionList } from '@beecount/web-features'
-import { dictionaries } from './i18n'
+import { dictionaries } from './i18n/all'
 
 const repayment: ReadTransaction = {
   id: 'tx-repayment', tx_index: 1, tx_type: 'transfer', amount: 135,

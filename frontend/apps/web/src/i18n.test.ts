@@ -12,7 +12,8 @@ import { formatBalanceCompact } from '@beecount/web-features'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { dictionaries } from './i18n'
+import { dictionaries } from './i18n/all'
+import { baseDictionaries, loadDictionaries } from './i18n'
 
 import en from './i18n/en'
 import zhCN from './i18n/zh-CN'
@@ -57,6 +58,38 @@ describe('i18n locale runtime', () => {
     persistLocale('en')
     expect(store.get(LOCALE_STORAGE_KEY)).toBe('en')
     expect(initialLocale()).toBe('en')
+  })
+})
+
+/**
+ * 语言包分块:入口只静态带 zh-CN(主用户群),en / zh-TW 各自一个 lazy chunk,
+ * 首帧由 main.tsx 阻塞取当前语言,运行期切换由 LocaleProvider 补取。
+ */
+describe('i18n lazy dictionaries', () => {
+  it('zh-CN 已在入口,不再额外加载', async () => {
+    await expect(loadDictionaries('zh-CN')).resolves.toBeUndefined()
+  })
+
+  it('en 只取自己;zh-TW 连带 en,因为繁体靠英文兜底缺词条', async () => {
+    await expect(loadDictionaries('en')).resolves.toEqual({ en })
+    await expect(loadDictionaries('zh-TW')).resolves.toEqual({ 'zh-TW': zhTW, en })
+  })
+
+  it('目标语言包没到位时先用已加载的语言顶着,不露 key', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => 'en', setItem: () => undefined } })
+    try {
+      function Probe() {
+        const t = useT()
+        return createElement('span', null, t('nav.calendar'))
+      }
+      const html = renderToStaticMarkup(
+        createElement(LocaleProvider, { dictionaries: baseDictionaries, children: createElement(Probe) })
+      )
+      expect(html).toContain(zhCN['nav.calendar'])
+      expect(html).not.toContain('nav.calendar<')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 

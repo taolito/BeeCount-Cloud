@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
   Button,
@@ -12,21 +12,43 @@ import {
   useT,
 } from '@beecount/ui'
 
-import * as CountryFlags from 'country-flag-icons/react/3x2'
-
 import {
   CURRENCY_REGION_GROUPS,
   countryCodeForCurrency,
   currencyDisplayName,
 } from '../lib/currencies'
+import type { FlagMap } from '../lib/countryFlags'
 
-type FlagComp = React.FC<{ className?: string; title?: string }>
-const _flags = CountryFlags as unknown as Record<string, FlagComp | undefined>
+let flagsModule: Promise<FlagMap> | null = null
 
-/** 币种国旗(区域货币无国旗 → null,调用处用符号占位)。 */
+/** 国旗表按需加载：入口 chunk 里不放 330kB 的全量 SVG,首屏不下载。 */
+function loadFlags(): Promise<FlagMap> {
+  if (!flagsModule) {
+    flagsModule = import('../lib/countryFlags').then((m) => m.flagMap)
+  }
+  return flagsModule
+}
+
+function useFlagMap(): FlagMap | null {
+  const [map, setMap] = useState<FlagMap | null>(null)
+  useEffect(() => {
+    if (map) return
+    let alive = true
+    loadFlags().then((next) => {
+      if (alive) setMap(next)
+    })
+    return () => {
+      alive = false
+    }
+  }, [map])
+  return map
+}
+
+/** 币种国旗(区域货币无国旗或旗帜表未加载完 → null,调用处用符号占位)。 */
 function CurrencyFlag({ code }: { code: string }) {
+  const flags = useFlagMap()
   const country = countryCodeForCurrency(code)
-  const Flag = country ? _flags[country] : undefined
+  const Flag = country ? flags?.[country] : undefined
   if (!Flag) {
     return (
       <span className="flex h-3.5 w-5 shrink-0 items-center justify-center rounded-[4px] bg-muted text-[8px] font-semibold text-muted-foreground">
