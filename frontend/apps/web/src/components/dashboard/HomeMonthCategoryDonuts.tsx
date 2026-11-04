@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -55,47 +55,61 @@ interface BlockProps {
  * 单个月度分类环（conic-gradient 分段，Top 5 + "其他"），只负责环 + 图例，
  * 卡片外壳和月份步进器由外层统一提供。参考 `AccountsPanel.AssetsCompositionMini`
  * 的同款做法，避免为分段饼图引入 recharts。
+ *
+ * 图例默认只列 Top 5 + "其他"，点「展开其余 {count} 个」列全部分类；环不动，
+ * 展开出来的尾部分类同属"其他"那一格扇区，所以沿用同一支中性灰。
  */
 function DonutBlock({ metric, ranks, currency }: BlockProps) {
   const t = useT()
+  const [expanded, setExpanded] = useState(false)
   const isExpense = metric === 'expense'
   const otherLabel = t('home.monthDonut.other')
-  const { slices, total } = useMemo(() => {
+  const uncategorizedLabel = t('home.monthDonut.uncategorized')
+  const { ringSlices, legendRows, total, categoryCount, hiddenCount, otherRow } = useMemo(() => {
     const sorted = ranks
       .slice()
       .sort((a, b) => b.total - a.total)
       .filter((r) => r.total > 0)
-    const top = sorted.slice(0, 5)
-    const rest = sorted.slice(5)
-    const restTotal = rest.reduce((s, r) => s + r.total, 0)
-    const restCount = rest.reduce((s, r) => s + r.tx_count, 0)
-    const all = top.map((r) => ({
-      name: r.category_name || t('home.monthDonut.uncategorized'),
+    const top = sorted.slice(0, PALETTE.length)
+    const restTotal = sorted.slice(PALETTE.length).reduce((s, r) => s + r.total, 0)
+    const ring = top.map((r, i) => ({
+      name: r.category_name || uncategorizedLabel,
       total: r.total,
-      count: r.tx_count
+      color: PALETTE[i % PALETTE.length]
     }))
-    if (restTotal > 0) {
-      all.push({ name: otherLabel, total: restTotal, count: restCount })
+    const otherRow =
+      restTotal > 0 ? { name: otherLabel, total: restTotal, color: OTHER_COLOR } : null
+    if (otherRow) {
+      ring.push(otherRow)
     }
-    const sum = all.reduce((s, r) => s + r.total, 0)
-    return { slices: all, total: sum }
-  }, [ranks, otherLabel, t])
+    return {
+      ringSlices: ring,
+      legendRows: sorted.map((r, i) => ({
+        name: r.category_name || uncategorizedLabel,
+        total: r.total,
+        color: i < PALETTE.length ? PALETTE[i % PALETTE.length] : OTHER_COLOR
+      })),
+      total: ring.reduce((s, r) => s + r.total, 0),
+      categoryCount: sorted.length,
+      hiddenCount: Math.max(0, sorted.length - top.length),
+      otherRow
+    }
+  }, [ranks, otherLabel, uncategorizedLabel])
 
   const conic = useMemo(() => {
     if (total <= 0) return 'hsl(var(--muted))'
     let acc = 0
     const stops: string[] = []
-    slices.forEach((s, i) => {
-      const color = s.name === otherLabel ? OTHER_COLOR : PALETTE[i % PALETTE.length]
+    ringSlices.forEach((s) => {
       const start = (acc / total) * 100
       acc += s.total
       const end = (acc / total) * 100
-      stops.push(`${color} ${start.toFixed(3)}% ${end.toFixed(3)}%`)
+      stops.push(`${s.color} ${start.toFixed(3)}% ${end.toFixed(3)}%`)
     })
     return `conic-gradient(from -90deg, ${stops.join(',')})`
-  }, [slices, total, otherLabel])
+  }, [ringSlices, total])
 
-  if (slices.length === 0) {
+  if (ringSlices.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
         {t(isExpense ? 'home.monthDonut.emptyExpense' : 'home.monthDonut.emptyIncome')}
@@ -103,9 +117,21 @@ function DonutBlock({ metric, ranks, currency }: BlockProps) {
     )
   }
 
+  // 收起时 = Top 5 + 汇总的「其他」；展开时 = 全部分类逐行，「其他」这一行不再出现。
+  const topRows = legendRows.slice(0, PALETTE.length)
+  const visibleRows = expanded
+    ? legendRows
+    : otherRow
+      ? [...topRows, otherRow]
+      : topRows
+
   return (
-    <div className="flex items-center gap-4">
-      <div className="relative h-36 w-36 shrink-0">
+    // 窄屏（<640px）卡片内容只有 ~270px，环和图例并排会把分类名压到两三个字，
+    // 所以改成环在上、图例在下；金额列收到 64px 保证不被卡片 overflow-hidden 切掉。
+    // min-w-0 是关键 —— 这一行是 grid 的 1fr 轨道，默认 min-width:auto 会让它
+    // 顶到内容最小宽（310px > 轨道 271px），整行溢出卡片右侧被裁。
+    <div className="flex min-w-0 flex-col items-center gap-3 sm:flex-row sm:gap-4">
+      <div className="relative h-28 w-28 shrink-0 md:h-36 md:w-36">
         <div className="absolute inset-0 rounded-full" style={{ background: conic }} aria-hidden />
         <div className="absolute inset-[18%] rounded-full bg-card" aria-hidden />
         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -121,30 +147,54 @@ function DonutBlock({ metric, ranks, currency }: BlockProps) {
             className="mt-0.5"
           />
           <div className="mt-0.5 text-[10px] text-muted-foreground">
-            {t('home.monthDonut.categoryCount').replace('{count}', String(slices.length))}
+            {t('home.monthDonut.categoryCount').replace('{count}', String(categoryCount))}
           </div>
         </div>
       </div>
-      <ul className="min-w-0 flex-1 space-y-1.5">
-        {slices.map((s, i) => {
-          const color = s.name === otherLabel ? OTHER_COLOR : PALETTE[i % PALETTE.length]
-          const pct = total > 0 ? (s.total / total) * 100 : 0
-          return (
-            <li key={`${s.name}-${i}`} className="flex items-center gap-2 text-xs">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                style={{ background: color }}
-                aria-hidden
-              />
-              <span className="flex-1 truncate">{s.name}</span>
-              <span className="text-muted-foreground font-mono tabular-nums">
-                {pct.toFixed(1)}%
-              </span>
-              <Amount value={s.total} currency={currency} size="xs" className="w-20 text-right" />
-            </li>
-          )
-        })}
-      </ul>
+      <div className="w-full min-w-0 flex-1">
+        <ul className="space-y-1.5">
+          {visibleRows.map((s, i) => {
+            const pct = total > 0 ? (s.total / total) * 100 : 0
+            return (
+              <li key={`${s.name}-${i}`} className="flex items-center gap-2 text-xs">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                  style={{ background: s.color }}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1 truncate" title={s.name}>
+                  {s.name}
+                </span>
+                <span className="shrink-0 text-muted-foreground font-mono tabular-nums">
+                  {pct.toFixed(1)}%
+                </span>
+                <Amount
+                  value={s.total}
+                  currency={currency}
+                  size="xs"
+                  className="w-16 shrink-0 text-right md:w-20"
+                />
+              </li>
+            )
+          })}
+        </ul>
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="mt-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            {expanded
+              ? t('home.monthDonut.collapse')
+              : t('home.monthDonut.expandRest').replace('{count}', String(hiddenCount))}
+            <ChevronDown
+              className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')}
+              aria-hidden
+            />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
