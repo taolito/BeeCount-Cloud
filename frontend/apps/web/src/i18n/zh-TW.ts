@@ -728,6 +728,8 @@ const zhTW = {
   'home.monthDonut.categoryCount': '{count} 個分類',
   'home.monthDonut.uncategorized': '未分類',
   'home.monthDonut.other': '其他',
+  'home.monthDonut.expandRest': '展開其餘 {count} 個',
+  'home.monthDonut.collapse': '收起',
 
   'home.trendBars.title': '月度收支走勢',
   'home.trendBars.empty': '暫無交易資料',
@@ -1726,6 +1728,7 @@ const zhTW = {
   'sharedLedger.tileCreatedBy': '{name} 建立',
   'sharedLedger.tileEditedBy': '{name} 最後編輯',
   'sharedLedger.tileCreatedAndEditedBy': '{name} 建立並編輯',
+  'sharedLedger.me': '我',
 
   // PWA: Share Target / File Handler 著陸頁 + 升級 banner + 安裝 banner
   'pwa.share.reading': '正在讀取分享內容...',

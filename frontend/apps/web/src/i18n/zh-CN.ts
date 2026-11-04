@@ -309,6 +309,8 @@ const zhCN = {
   'home.monthDonut.categoryCount': '{count} 个分类',
   'home.monthDonut.uncategorized': '未分类',
   'home.monthDonut.other': '其他',
+  'home.monthDonut.expandRest': '展开其余 {count} 个',
+  'home.monthDonut.collapse': '收起',
 
   // MonthlyTrendBars
   'home.trendBars.title': '月度收支走势',
@@ -1821,6 +1823,7 @@ const zhCN = {
   'sharedLedger.tileCreatedBy': '{name} 创建',
   'sharedLedger.tileEditedBy': '{name} 最后编辑',
   'sharedLedger.tileCreatedAndEditedBy': '{name} 创建并编辑',
+  'sharedLedger.me': '我',
 
   // PWA: Share Target / File Handler 着陆页 + 升级 banner + 安装 banner
   'pwa.share.reading': '正在读取分享内容...',

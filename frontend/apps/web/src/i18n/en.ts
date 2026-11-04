@@ -765,6 +765,8 @@ const en = {
   'home.monthDonut.categoryCount': '{count} categories',
   'home.monthDonut.uncategorized': 'Uncategorized',
   'home.monthDonut.other': 'Other',
+  'home.monthDonut.expandRest': 'Show {count} more',
+  'home.monthDonut.collapse': 'Collapse',
 
   'home.trendBars.title': 'Monthly trend',
   'home.trendBars.empty': 'No data',
@@ -1783,6 +1785,7 @@ const en = {
   'sharedLedger.tileCreatedBy': 'Created by {name}',
   'sharedLedger.tileEditedBy': 'Last edited by {name}',
   'sharedLedger.tileCreatedAndEditedBy': 'Created and edited by {name}',
+  'sharedLedger.me': 'me',
 
   // PWA: Share Target / File Handler landing + update banner + install banner
   'pwa.share.reading': 'Reading shared content...',
