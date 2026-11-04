@@ -154,13 +154,42 @@ async function doRefresh(): Promise<string> {
 
 type FetchMaker = (token: string) => Promise<Response>
 
+/** access token 的 exp（毫秒）。只解 payload 不验签 —— 服务端才是权威，这里
+ *  只用来决定"要不要提前换一张"，解不出来就当不过期。 */
+function tokenExpiresAtMs(token: string): number | null {
+  const segments = `${token || ''}`.split('.')
+  if (segments.length !== 3) return null
+  try {
+    const payload = JSON.parse(atob(segments[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload?.exp === 'number' ? payload.exp * 1000 : null
+  } catch (_) {
+    return null
+  }
+}
+
+// 提前 60s 换票：页面冷启动时 localStorage 里的票常常已经过期，20 个请求会
+// 全部先 401 → 单飞刷新 → 重放，整波多付一个往返（WebSocket 握手同理，直接 403）。
+const REFRESH_SKEW_MS = 60_000
+
+async function tokenForRequest(token: string): Promise<string> {
+  if (!refreshFn) return token
+  const expiresAt = tokenExpiresAtMs(token)
+  if (!expiresAt || expiresAt - Date.now() > REFRESH_SKEW_MS) return token
+  try {
+    return await doRefresh()
+  } catch (_) {
+    // 换票失败就用旧票正常发出去，让 401 兜底逻辑决定是不是该登出。
+    return token
+  }
+}
+
 /**
  * Perform an authed fetch with transparent single-flight token refresh on 401.
  * Callers provide a factory that builds the request given the current token
  * string so we can replay the call with a refreshed token.
  */
 async function authedFetch(makeRequest: FetchMaker, token: string): Promise<Response> {
-  const res = await makeRequest(token)
+  const res = await makeRequest(await tokenForRequest(token))
   if (res.status !== 401) return res
   // Drain the body so we don't leak the connection on node/fetch implementations.
   try {
