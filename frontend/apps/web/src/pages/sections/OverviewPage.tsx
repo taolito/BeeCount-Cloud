@@ -35,6 +35,9 @@ export function OverviewPage() {
   const navigate = useNavigate()
   const { token } = useAuth()
   const { activeLedgerId, currentLedger } = useLedgers()
+  // 只取 month_start_day 这个原始值:currentLedger 是从 ledgers 派生的对象,
+  // 列表每刷新一次就换引用。把它塞进 loadAnalytics 的依赖,首页那 5 个请求会整波重发。
+  const monthStartDay = currentLedger?.month_start_day ?? 1
 
   // Overview 的所有数据按当前账本分桶 —— 切账本时读对应桶,没命中显示空
   // 态后台 refetch。accounts / tags 实体本身是 user-global,但首页 Top 卡片
@@ -163,7 +166,7 @@ export function OverviewPage() {
 
   const loadAnalytics = useCallback(async () => {
     const now = new Date()
-    const msd = Math.max(1, Math.min(28, currentLedger?.month_start_day ?? 1))
+    const msd = Math.max(1, Math.min(28, monthStartDay))
     const currentPeriod = periodLabel(now, msd)
     const tzOffsetMinutes = -now.getTimezoneOffset()
     // allSettled:单个请求失败时其它请求的数据依然 set。
@@ -226,7 +229,7 @@ export function OverviewPage() {
         first_tx_at: s?.first_tx_at ?? null,
       })
     }
-  }, [token, activeLedgerId, currentLedger])
+  }, [token, activeLedgerId, monthStartDay])
 
   // 月度收支分类双环：选中月份的支出 + 收入排行。跟 loadAnalytics 分开是因为
   // 月份是用户可改的视图状态，不该连带重拉 year/all 那几个请求。
