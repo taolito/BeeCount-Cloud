@@ -183,6 +183,12 @@ async function tokenForRequest(token: string): Promise<string> {
   }
 }
 
+/** 非 fetch 通道（WebSocket 握手 URL 这类）复用同一套“临近过期先换票”逻辑，
+ *  否则重连会一直带同一张过期票，服务端 403 后永远不自愈。 */
+export async function ensureFreshToken(token: string): Promise<string> {
+  return tokenForRequest(token)
+}
+
 /**
  * Perform an authed fetch with transparent single-flight token refresh on 401.
  * Callers provide a factory that builds the request given the current token

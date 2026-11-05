@@ -147,19 +147,22 @@ function AppRoutes() {
     navigate('/login', { replace: true })
   }, [navigate])
 
-  useEffect(() => {
-    configureHttp({
-      refreshToken: async () => {
-        const fresh = await refreshAuth()
-        setToken(fresh)
-        return fresh
-      },
-      onLogout: handleLogout
-    })
-    return () => {
-      configureHttp({ refreshToken: null, onLogout: null })
-    }
-  }, [handleLogout])
+  const refreshToken = useCallback(async () => {
+    const fresh = await refreshAuth()
+    setToken(fresh)
+    return fresh
+  }, [])
+
+  // React 先 flush 子组件 effect,再 flush 父组件 effect。把 configureHttp 放在
+  // useEffect 里,冷启动首波请求(sync/pull、categories、ledgers、profile/me)
+  // 发出时 refreshFn 还是 null,http.ts 的"临近过期先换票"直接跳过,只能吃一串
+  // 401 再刷新重放。渲染期赋值让 refreshFn 在子树挂载前就位;写的是模块级单例,
+  // 幂等,StrictMode 双渲染无害。
+  // 对应地,这里不能挂 unmount 清空:dev 下 StrictMode 会 mount→unmount→mount,
+  // 重挂载不会重跑渲染体,清空后 refreshFn 一直为 null,首波又回到全 401。
+  // 单例留着这两个稳定回调没有副作用:登出后 refreshAuth 读不到 refresh token,
+  // 直接抛错走 logoutFn。
+  configureHttp({ refreshToken, onLogout: handleLogout })
 
   // Nested routes:AppShell 作为 /app 父路由的 element,其 <Outlet /> 渲染
   // 当前子路由,切换 section 时 AppShell 不 unmount —— profileMe / ledgers

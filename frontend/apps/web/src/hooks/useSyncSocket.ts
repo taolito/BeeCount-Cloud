@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { ensureFreshToken } from '@beecount/api-client'
+
 export type SyncSocketStatus = 'idle' | 'connecting' | 'connected' | 'disconnected'
 
 export interface UseSyncSocketOptions {
@@ -52,11 +54,22 @@ export function useSyncSocket({
   const heartbeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const destroyedRef = useRef(false)
+  const connectingRef = useRef(false)
+  // connect() 换票是异步的,await 期间 token 变化会让 effect 重跑;旧 connect
+  // 醒来必须知道自己已过时,否则会开一条没有 owner 的孤儿 socket。
+  const generationRef = useRef(0)
   const handlersRef = useRef({ onEvent, onOpen, onDisconnect })
   handlersRef.current = { onEvent, onOpen, onDisconnect }
+  // 重连可能由上一轮 effect 留下的闭包触发,票必须从 ref 取当前值,不能靠闭包。
+  const tokenRef = useRef(token)
+  tokenRef.current = token
 
   useEffect(() => {
     destroyedRef.current = false
+    // 本轮世代号 + 清掉上一轮遗留的"正在换票"标记,否则旧 connect 的 finally
+    // 会把本轮第一次连接当成重入而跳过。
+    const generation = ++generationRef.current
+    connectingRef.current = false
     if (!token) {
       setStatus('idle')
       return () => {
@@ -97,7 +110,7 @@ export function useSyncSocket({
       attemptRef.current += 1
       reconnectTimeoutRef.current = setTimeout(() => {
         if (destroyedRef.current) return
-        connect()
+        void connect()
       }, delay)
     }
 
@@ -118,12 +131,26 @@ export function useSyncSocket({
       }, HEARTBEAT_TIMEOUT_MS)
     }
 
-    function connect() {
-      if (destroyedRef.current) return
+    async function connect() {
+      // connectingRef 防重入:换票是异步的,期间 backoff 定时器 / online 事件
+      // 可能再次触发 connect,否则会开两条并行 socket。
+      if (destroyedRef.current || connectingRef.current || !tokenRef.current) return
+      connectingRef.current = true
       setStatus('connecting')
+      // 重连闭包里的 token 可能是几小时前那张。握手带过期票服务端直接 403,
+      // 且不会走 HTTP 的 401→刷新通路,客户端就拿着死票无限重试。
+      const stale = tokenRef.current
+      let fresh = stale
+      try {
+        fresh = await ensureFreshToken(stale)
+      } finally {
+        if (generationRef.current === generation) connectingRef.current = false
+      }
+      // 换票期间本轮已被更新的 token 取代 → 让新的 effect 去开 socket。
+      if (destroyedRef.current || generationRef.current !== generation) return
       let socket: WebSocket
       try {
-        socket = new WebSocket(buildUrl(token!))
+        socket = new WebSocket(buildUrl(fresh))
       } catch (_) {
         scheduleReconnect()
         return
@@ -184,7 +211,7 @@ export function useSyncSocket({
       if (socketRef.current?.readyState !== WebSocket.OPEN) {
         if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
         attemptRef.current = 0
-        connect()
+        void connect()
       }
     }
     function handleVisibility() {
@@ -199,10 +226,12 @@ export function useSyncSocket({
 
     window.addEventListener('online', handleOnline)
     document.addEventListener('visibilitychange', handleVisibility)
-    connect()
+    void connect()
 
     return () => {
       destroyedRef.current = true
+      // 让还在 await 换票的 connect 醒来后自己退出,不再开 socket。
+      generationRef.current += 1
       window.removeEventListener('online', handleOnline)
       document.removeEventListener('visibilitychange', handleVisibility)
       teardown()

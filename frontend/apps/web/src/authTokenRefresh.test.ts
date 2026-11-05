@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { authedGet, configureHttp } from '@beecount/api-client'
+import { authedGet, configureHttp, ensureFreshToken } from '@beecount/api-client'
 
 /** 造一张只关心 exp 的假 JWT（客户端不验签，只解 payload 决定要不要提前换票）。 */
 function jwt(expInSeconds: number): string {
@@ -94,5 +94,54 @@ describe('access token 预刷新', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(authHeaderOf(fetchMock.mock.calls, 0)).toBe(`Bearer ${stale}`)
     expect(authHeaderOf(fetchMock.mock.calls, 1)).not.toBe(`Bearer ${stale}`)
+  })
+})
+
+describe('ensureFreshToken(WebSocket 握手复用同一套预刷新)', () => {
+  afterEach(() => {
+    configureHttp({ refreshToken: null, onLogout: null })
+  })
+
+  it('票快过期时返回换到的新票,重连不再带死票', async () => {
+    const stale = jwt(10)
+    const fresh = jwt(3600)
+    const refreshToken = vi.fn(async () => fresh)
+    configureHttp({ refreshToken })
+
+    expect(await ensureFreshToken(stale)).toBe(fresh)
+    expect(refreshToken).toHaveBeenCalledTimes(1)
+  })
+
+  it('并发重连共享一次刷新', async () => {
+    const stale = jwt(10)
+    const fresh = jwt(3600)
+    const refreshToken = vi.fn(
+      async () =>
+        new Promise<string>((resolve) => {
+          setTimeout(() => resolve(fresh), 5)
+        })
+    )
+    configureHttp({ refreshToken })
+
+    const results = await Promise.all([ensureFreshToken(stale), ensureFreshToken(stale)])
+
+    expect(results).toEqual([fresh, fresh])
+    expect(refreshToken).toHaveBeenCalledTimes(1)
+  })
+
+  it('票还有效时原样返回,不打刷新接口', async () => {
+    const valid = jwt(3600)
+    const refreshToken = vi.fn(async () => jwt(7200))
+    configureHttp({ refreshToken })
+
+    expect(await ensureFreshToken(valid)).toBe(valid)
+    expect(refreshToken).not.toHaveBeenCalled()
+  })
+
+  it('刷新失败时退回旧票,让服务端 403 说话', async () => {
+    const stale = jwt(10)
+    configureHttp({ refreshToken: vi.fn(async () => { throw new Error('no refresh token') }) })
+
+    expect(await ensureFreshToken(stale)).toBe(stale)
   })
 })
