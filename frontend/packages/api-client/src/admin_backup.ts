@@ -3,7 +3,7 @@
  *
  * Remotes / Schedules / Runs CRUD + run-now + test + 下载 rclone.conf。
  */
-import { API_BASE, authedDelete, authedGet, authedPatch, authedPost } from './http'
+import { API_BASE, authedDelete, authedGet, authedPatch, authedPost, authedRawFetch } from './http'
 
 export type BackupRemote = {
   id: number
@@ -246,9 +246,7 @@ export function deleteBackupRestore(
  * 解析,返回纯文本。
  */
 export async function downloadRcloneConfig(token: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/admin/backup/rclone-config`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await authedRawFetch(`${API_BASE}/admin/backup/rclone-config`, token)
   if (!res.ok) {
     throw new Error(`rclone-config fetch failed: ${res.status}`)
   }

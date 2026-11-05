@@ -11,7 +11,7 @@
 //   POST   /invites/{code}/preview           preview_invite(未登录也能调)
 //   POST   /invites/{code}/accept            accept_invite
 
-import { API_BASE, authedGet } from './http'
+import { API_BASE, authedGet, authedRawFetch } from './http'
 import { extractApiError } from './errors'
 
 // === Types ===
@@ -124,12 +124,10 @@ export async function removeLedgerMember(
   ledgerId: string,
   userId: string,
 ): Promise<void> {
-  const res = await fetch(
+  const res = await authedRawFetch(
     `${API_BASE}/ledgers/${encodeURIComponent(ledgerId)}/members/${encodeURIComponent(userId)}`,
-    {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    },
+    token,
+    { method: 'DELETE' },
   )
   if (!res.ok) throw await extractApiError(res)
 }
@@ -141,12 +139,12 @@ export async function createLedgerInvite(
   ledgerId: string,
   options?: { role?: 'editor'; expires_in_hours?: number },
 ): Promise<LedgerInviteCreateResponse> {
-  const res = await fetch(
+  const res = await authedRawFetch(
     `${API_BASE}/ledgers/${encodeURIComponent(ledgerId)}/invites`,
+    token,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -176,12 +174,10 @@ export async function revokeLedgerInvite(
 ): Promise<void> {
   // server: DELETE /ledgers/{ledger_external_id}/invites/{code}
   // (并非 /invites/{code} — 那条路径不存在,会 404)
-  const res = await fetch(
+  const res = await authedRawFetch(
     `${API_BASE}/ledgers/${encodeURIComponent(ledgerId)}/invites/${encodeURIComponent(code)}`,
-    {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    },
+    token,
+    { method: 'DELETE' },
   )
   if (!res.ok) throw await extractApiError(res)
 }
@@ -190,12 +186,10 @@ export async function previewLedgerInvite(
   token: string,
   code: string,
 ): Promise<LedgerInvitePreview> {
-  const res = await fetch(
+  const res = await authedRawFetch(
     `${API_BASE}/invites/${encodeURIComponent(code)}/preview`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    },
+    token,
+    { method: 'POST' },
   )
   if (!res.ok) throw await extractApiError(res)
   return res.json()
@@ -205,12 +199,10 @@ export async function acceptLedgerInvite(
   token: string,
   code: string,
 ): Promise<LedgerInviteAcceptResponse> {
-  const res = await fetch(
+  const res = await authedRawFetch(
     `${API_BASE}/invites/${encodeURIComponent(code)}/accept`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    },
+    token,
+    { method: 'POST' },
   )
   if (!res.ok) throw await extractApiError(res)
   return res.json()

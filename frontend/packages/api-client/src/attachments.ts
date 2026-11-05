@@ -1,7 +1,6 @@
 import { extractApiError } from './errors'
-import { API_BASE } from './http'
+import { API_BASE, authedGet, authedRawFetch } from './http'
 import type { AttachmentBatchExistsResponse, AttachmentUploadOut, AttachmentRef } from './types'
-import { authedGet } from './http'
 
 export type AttachmentTransaction = {
   id: string
@@ -46,9 +45,11 @@ export function fetchGalleryAttachments(token: string, options: {
 }
 
 export async function downloadAttachmentThumbnail(token: string, fileId: string, signal: AbortSignal): Promise<Blob> {
-  const response = await fetch(`${API_BASE}/attachments/${encodeURIComponent(fileId)}/thumbnail`, {
-    headers: { Authorization: `Bearer ${token}` }, signal,
-  })
+  const response = await authedRawFetch(
+    `${API_BASE}/attachments/${encodeURIComponent(fileId)}/thumbnail`,
+    token,
+    { signal }
+  )
   if (!response.ok) throw await extractApiError(response)
   return response.blob()
 }
@@ -57,10 +58,9 @@ export async function batchAttachmentExists(
   token: string,
   payload: { ledger_id: string; sha256_list: string[] }
 ): Promise<AttachmentBatchExistsResponse> {
-  const res = await fetch(`${API_BASE}/attachments/batch-exists`, {
+  const res = await authedRawFetch(`${API_BASE}/attachments/batch-exists`, token, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
@@ -82,11 +82,8 @@ export async function uploadAttachment(
     body.append('mime_type', payload.mime_type.trim())
   }
 
-  const res = await fetch(`${API_BASE}/attachments/upload`, {
+  const res = await authedRawFetch(`${API_BASE}/attachments/upload`, token, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`
-    },
     body
   })
   if (!res.ok) {
@@ -100,11 +97,8 @@ export async function downloadAttachment(
   fileId: string,
   signal?: AbortSignal,
 ): Promise<{ blob: Blob; fileName: string | null; mimeType: string | null }> {
-  const res = await fetch(`${API_BASE}/attachments/${encodeURIComponent(fileId)}`, {
-    signal,
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
+  const res = await authedRawFetch(`${API_BASE}/attachments/${encodeURIComponent(fileId)}`, token, {
+    signal
   })
   if (!res.ok) {
     throw await extractApiError(res)

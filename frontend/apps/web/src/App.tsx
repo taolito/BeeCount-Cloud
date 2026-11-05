@@ -149,7 +149,15 @@ function AppRoutes() {
 
   const refreshToken = useCallback(async () => {
     const fresh = await refreshAuth()
-    setToken(fresh)
+    // 只落盘、不进 React state。票的权威在 api-client 模块里（http.ts 会记住最近
+    // 换出来的那张），这里一旦 setState，所有把 token 放进依赖数组的 effect 会整体
+    // 重跑，每 60 分钟一次的换票就把冷启动首波请求原样重放一遍。
+    try {
+      localStorage.setItem(TOKEN_KEY, fresh)
+      localStorage.removeItem(LEGACY_TOKEN_KEY)
+    } catch {
+      // 私密模式 / 超配额写不进去：内存里已有新票，下次启动顶多多换一次票。
+    }
     return fresh
   }, [])
 

@@ -74,6 +74,12 @@ type LogoutFn = () => void
 let refreshFn: RefreshFn | null = null
 let logoutFn: LogoutFn | null = null
 let refreshInFlight: Promise<string> | null = null
+// 最近一次换票拿到的那张。调用方传的常常是旧的渲染快照，靠它把陈旧闭包兜住。
+let lastRefreshed: { token: string; subject: string | null } | null = null
+
+// 提前 60s 换票：页面冷启动时 localStorage 里的票常常已经过期，20 个请求会
+// 全部先 401 → 单飞刷新 → 重放，整波多付一个往返（WebSocket 握手同理，直接 403）。
+const REFRESH_SKEW_MS = 60_000
 
 /**
  * Wire the http layer to app-level auth callbacks. Call once after login
@@ -145,11 +151,23 @@ function authHeaders(token: string, idempotencyKey?: string): Record<string, str
 async function doRefresh(): Promise<string> {
   if (!refreshFn) throw new Error('no refresh configured')
   if (!refreshInFlight) {
-    refreshInFlight = refreshFn().finally(() => {
-      refreshInFlight = null
-    })
+    refreshInFlight = refreshFn()
+      .then((fresh) => {
+        // 记住这张票：调用方手里可能是几小时前那次渲染捕获的旧快照。
+        lastRefreshed = { token: fresh, subject: tokenSubject(fresh) }
+        return fresh
+      })
+      .finally(() => {
+        refreshInFlight = null
+      })
   }
   return refreshInFlight
+}
+
+/** 会话结束必须连带作废换票缓存，否则下一个账号会拿到上一个用户的票。 */
+function forgetSession(): void {
+  lastRefreshed = null
+  logoutFn?.()
 }
 
 type FetchMaker = (token: string) => Promise<Response>
@@ -157,24 +175,41 @@ type FetchMaker = (token: string) => Promise<Response>
 /** access token 的 exp（毫秒）。只解 payload 不验签 —— 服务端才是权威，这里
  *  只用来决定"要不要提前换一张"，解不出来就当不过期。 */
 function tokenExpiresAtMs(token: string): number | null {
+  const payload = tokenClaims(token)
+  return typeof payload?.exp === 'number' ? payload.exp * 1000 : null
+}
+
+function tokenClaims(token: string): { exp?: number; sub?: string } | null {
   const segments = `${token || ''}`.split('.')
   if (segments.length !== 3) return null
   try {
     const payload = JSON.parse(atob(segments[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return typeof payload?.exp === 'number' ? payload.exp * 1000 : null
+    return payload && typeof payload === 'object' ? payload : null
   } catch (_) {
     return null
   }
 }
 
-// 提前 60s 换票：页面冷启动时 localStorage 里的票常常已经过期，20 个请求会
-// 全部先 401 → 单飞刷新 → 重放，整波多付一个往返（WebSocket 握手同理，直接 403）。
-const REFRESH_SKEW_MS = 60_000
+function tokenSubject(token: string): string | null {
+  const sub = tokenClaims(token)?.sub
+  return typeof sub === 'string' ? sub : null
+}
+
+/** 这张票是否该换了（临近过期或已过期）。解不出 exp 当有效，保持原语义。 */
+function isTokenStale(token: string): boolean {
+  const expiresAt = tokenExpiresAtMs(token)
+  return !!expiresAt && expiresAt - Date.now() <= REFRESH_SKEW_MS
+}
 
 async function tokenForRequest(token: string): Promise<string> {
   if (!refreshFn) return token
-  const expiresAt = tokenExpiresAtMs(token)
-  if (!expiresAt || expiresAt - Date.now() > REFRESH_SKEW_MS) return token
+  if (!isTokenStale(token)) return token
+  // 本模块刚刷出来的同一个人那张票还没到期 → 直接复用。没有这一步，每个握着
+  // 旧票快照的调用方都会各自再触发一次 /auth/refresh，refresh token 轮换互相
+  // 踩脚，最后一个 401 把会话踢下线。
+  if (lastRefreshed && lastRefreshed.subject && lastRefreshed.subject === tokenSubject(token) && !isTokenStale(lastRefreshed.token)) {
+    return lastRefreshed.token
+  }
   try {
     return await doRefresh()
   } catch (_) {
@@ -205,16 +240,47 @@ async function authedFetch(makeRequest: FetchMaker, token: string): Promise<Resp
   }
   if (!refreshFn) {
     // No refresh path configured — surface 401 so caller logs out explicitly.
-    logoutFn?.()
+    forgetSession()
     return res
   }
   try {
     const fresh = await doRefresh()
     return await makeRequest(fresh)
   } catch (_) {
-    logoutFn?.()
+    forgetSession()
     return res
   }
+}
+
+function headerBag(headers: RequestInit['headers']): Record<string, string> {
+  if (!headers) return {}
+  if (headers instanceof Headers) {
+    const out: Record<string, string> = {}
+    headers.forEach((value, key) => {
+      out[key] = value
+    })
+    return out
+  }
+  if (Array.isArray(headers)) return Object.fromEntries(headers as [string, string][])
+  return { ...(headers as Record<string, string>) }
+}
+
+/**
+ * 统一鉴权通道：下载、上传、SSE、非 JSON 响应这类必须自己调 fetch 的地方都走这里，
+ * 白拿"临近过期先换票 + 401 单飞刷新后重放"。`Authorization` / `X-Device-ID` 由本模块
+ * 注入，`init.headers` 里的同名值会被覆盖，其余原样保留；`url` 需是完整 URL。
+ */
+export async function authedRawFetch(
+  url: string,
+  token: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  return authedFetch((tok) => {
+    const extra = headerBag(init.headers)
+    delete extra['Authorization']
+    delete extra['authorization']
+    return fetch(url, { ...init, headers: { ...extra, ...authHeaders(tok) } })
+  }, token)
 }
 
 export async function authedGet<T>(path: string, token: string): Promise<T> {

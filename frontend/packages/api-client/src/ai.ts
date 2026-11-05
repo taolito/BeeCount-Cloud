@@ -1,4 +1,4 @@
-import { API_BASE, authedGet, authedPost } from './http'
+import { API_BASE, authedGet, authedPost, authedRawFetch } from './http'
 import { ApiError, extractApiError } from './errors'
 import type { RagIndexStatus } from './types'
 
@@ -52,10 +52,9 @@ export async function* streamAsk(
   token: string,
   options: AskRequest,
 ): AsyncGenerator<AskEvent> {
-  const response = await fetch(`${API_BASE}/ai/ask`, {
+  const response = await authedRawFetch(`${API_BASE}/ai/ask`, token, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
     },
@@ -151,9 +150,8 @@ export async function parseTxImage(
   if (options.ledgerId) fd.append('ledger_id', options.ledgerId)
   fd.append('locale', options.locale || 'zh')
 
-  const res = await fetch(`${API_BASE}/ai/parse-tx-image`, {
+  const res = await authedRawFetch(`${API_BASE}/ai/parse-tx-image`, token, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: fd,
   })
   if (!res.ok) throw await extractApiError(res)

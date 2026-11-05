@@ -7,7 +7,7 @@
  *  - executeImport(token)          —— SSE 流,生成 stage / complete / error 事件
  *  - cancelImport(token)           —— DELETE 取消
  */
-import { API_BASE, authedDelete, authedPost } from './http'
+import { API_BASE, authedDelete, authedPost, authedRawFetch } from './http'
 import { ApiError, extractApiError } from './errors'
 
 export type ImportSourceFormat = 'beecount' | 'alipay' | 'wechat' | 'generic'
@@ -131,9 +131,8 @@ export async function uploadImport(
   // CSV/Excel 里的时间是用户本地墙钟,带上浏览器时区偏移(东为正,UTC+8 = 480),
   // 让后端从上传起就正确换算成 UTC,sample/preview/execute 全程一致(issue #314)。
   form.append('tz_offset_minutes', String(-new Date().getTimezoneOffset()))
-  const response = await fetch(`${API_BASE}/import/upload`, {
+  const response = await authedRawFetch(`${API_BASE}/import/upload`, token, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: form,
   })
   if (!response.ok) throw await extractApiError(response)
@@ -187,12 +186,12 @@ export async function* streamExecuteImport(
   token: string,
   importToken: string,
 ): AsyncGenerator<ImportSseEvent> {
-  const response = await fetch(
+  const response = await authedRawFetch(
     `${API_BASE}/import/${encodeURIComponent(importToken)}/execute`,
+    token,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
         Accept: 'text/event-stream',
       },
     },

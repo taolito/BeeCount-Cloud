@@ -1,4 +1,4 @@
-import { API_BASE, authedGet, authedPatch, authedPost, resolveApiUrl } from './http'
+import { API_BASE, authedGet, authedPatch, authedPost, authedRawFetch, resolveApiUrl } from './http'
 import { extractApiError } from './errors'
 import type { AIConfig, ProfileAppearance, ProfileMe } from './types'
 
@@ -79,9 +79,8 @@ export async function uploadProfileAvatar(
 ): Promise<UploadAvatarResponse> {
   const form = new FormData()
   form.append('file', file)
-  const response = await fetch(`${API_BASE}/profile/avatar`, {
+  const response = await authedRawFetch(`${API_BASE}/profile/avatar`, token, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: form
   })
   if (!response.ok) {

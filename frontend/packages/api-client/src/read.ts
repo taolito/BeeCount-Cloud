@@ -1,4 +1,4 @@
-import { API_BASE, authedGet, resolveApiUrl } from './http'
+import { API_BASE, authedGet, authedRawFetch, resolveApiUrl } from './http'
 import { extractApiError } from './errors'
 import type {
   AnalyticsMetric,
@@ -383,9 +383,7 @@ export async function downloadWorkspaceTransactionsCsv(
   if (options.lang) query.set('lang', options.lang)
 
   const url = `${API_BASE}/read/workspace/transactions.csv?${query.toString()}`
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const response = await authedRawFetch(url, token)
   if (!response.ok) {
     throw await extractApiError(response)
   }

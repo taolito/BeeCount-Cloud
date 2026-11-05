@@ -1,4 +1,4 @@
-import { API_BASE } from '@beecount/api-client'
+import { API_BASE, authedRawFetch } from '@beecount/api-client'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -62,7 +62,7 @@ export async function drainPull(
     params.set('limit', '1000')
     if (deviceId) params.set('device_id', deviceId)
     const url = `${API_BASE}/sync/pull?${params.toString()}`
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await authedRawFetch(url, token)
     if (!res.ok) {
       // Non-OK stops the drain; callers decide how to surface.
       break
