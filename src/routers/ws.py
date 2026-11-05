@@ -39,9 +39,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(default=""
         await websocket.close(code=1008)
         return
 
-    db = SessionLocal()
-    user = db.scalar(select(User).where(User.id == user_id))
-    db.close()
+    # with 语义:握手期查询抛错(池超时 / 库锁)时也要把连接还回池里,
+    # 否则每个失败的握手都会永久吞掉一条连接,池打满后整站请求排队到超时。
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.id == user_id))
     if user is None:
         await websocket.close(code=1008)
         return

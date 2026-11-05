@@ -15,9 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.routing import Route
 from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy import text
+from sqlalchemy.pool import QueuePool
 
 from .config import get_settings
-from .database import SessionLocal
+from .database import SessionLocal, engine
 from .error_handling import register_exception_handlers
 from .logging_ring import install_ring_buffer
 from .metrics import metrics
@@ -141,6 +142,14 @@ def ready() -> dict:
 
 @app.get("/metrics", response_class=PlainTextResponse)
 def prometheus_metrics() -> str:
+    # 这两个指标只有 QueuePool 提供:内存库走 SingletonThreadPool、测试走
+    # StaticPool,都没有,直接跳过。不报 pool.overflow() —— 它是"距配额的差值",
+    # 池没满时为负数,放进 /metrics 会被读反。
+    pool = engine.pool
+    if isinstance(pool, QueuePool):
+        capacity = settings.db_pool_size + settings.db_max_overflow
+        metrics.set_gauge("beecount_db_pool_checked_out", float(pool.checkedout()))
+        metrics.set_gauge("beecount_db_pool_capacity", float(capacity))
     return metrics.render_prometheus()
 
 

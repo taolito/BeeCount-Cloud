@@ -23,6 +23,13 @@ class Settings(BaseSettings):
 
     database_url: str = Field(default="sqlite:///./beecount.db")
 
+    # SQLAlchemy 池。默认 5+10/等待 30s 太小:首页一开就是 20 个请求,叠加 WS
+    # 重连,实测能把并发请求整波拖到 60s/121s 并返回 500。放大容量 + 快速失败,
+    # 宁可 5s 报池耗尽,也不要让请求挂 30s 占着前端。
+    db_pool_size: int = 20
+    db_max_overflow: int = 20
+    db_pool_timeout_seconds: int = 5
+
     jwt_secret: str = Field(default="change-me-in-production-at-least-32-bytes")
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60

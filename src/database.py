@@ -10,6 +10,12 @@ settings = get_settings()
 engine_kwargs: dict = {"pool_pre_ping": True}
 if settings.database_url.startswith("sqlite"):
     engine_kwargs["connect_args"] = {"check_same_thread": False}
+# 内存 sqlite(:memory: / 裸 sqlite://)走 SingletonThreadPool,它不接受
+# max_overflow;只有文件库才是 QueuePool,才需要显式池参数。
+if settings.database_url not in ("sqlite://", "sqlite:///:memory:"):
+    engine_kwargs["pool_size"] = settings.db_pool_size
+    engine_kwargs["max_overflow"] = settings.db_max_overflow
+    engine_kwargs["pool_timeout"] = settings.db_pool_timeout_seconds
 engine = create_engine(settings.database_url, **engine_kwargs)
 
 
