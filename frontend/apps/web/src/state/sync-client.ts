@@ -1,4 +1,5 @@
 import { API_BASE, authedRawFetch } from '@beecount/api-client'
+import { createSingleFlight, type SingleFlightGuard } from '@beecount/web-features'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -43,16 +44,41 @@ export function clearCursor(userId: string): void {
   window.localStorage.removeItem(cursorKey(userId))
 }
 
+export interface SyncPullResult {
+  changes: SyncChangeEnvelope[]
+  cursor: number
+}
+
+// 按 userId 分桶:换账号登录时旧账号还在飞的 drain 不该挡住新账号的首拉。
+const pullGuards = new Map<string, SingleFlightGuard>()
+
 /**
  * Fetch all changes since the caller's last-known cursor, draining the
  * ``has_more`` flag so callers don't have to loop manually. Returns the
  * final server cursor (already persisted) and total change count.
+ *
+ * 单飞:冷启动时 poller 首 tick 与 WS onOpen 补拉会并发撞车,各自拉回同一批
+ * changes 再各广播一次 batch,首页就白刷两波。并发调用直接返回 undefined
+ * (跳过),由正在跑的那次负责交付;它落地后守卫释放,下一次调用照常拉。
  */
-export async function drainPull(
+export function drainPull(
   token: string,
   userId: string,
   deviceId: string | null
-): Promise<{ changes: SyncChangeEnvelope[]; cursor: number }> {
+): Promise<SyncPullResult | undefined> {
+  let guard = pullGuards.get(userId)
+  if (!guard) {
+    guard = createSingleFlight()
+    pullGuards.set(userId, guard)
+  }
+  return guard(() => drainPullOnce(token, userId, deviceId))
+}
+
+async function drainPullOnce(
+  token: string,
+  userId: string,
+  deviceId: string | null
+): Promise<SyncPullResult> {
   let cursor = loadCursor(userId)
   const collected: SyncChangeEnvelope[] = []
   // Cap the drain loop so a misbehaving server can't spin us forever.
@@ -104,9 +130,10 @@ export function startPoller(params: {
     if (typeof document !== 'undefined' && document.hidden) return
     inflight = true
     try {
-      const { changes } = await drainPull(params.token, params.userId, params.deviceId)
-      if (changes.length > 0 && !stopped) {
-        params.onChanges(changes)
+      // undefined = 已有别的 drain 在飞(比如 WS onOpen 补拉),它会交付这批 changes。
+      const result = await drainPull(params.token, params.userId, params.deviceId)
+      if (result && result.changes.length > 0 && !stopped) {
+        params.onChanges(result.changes)
       }
     } catch (_) {
       // Swallow network errors — next tick will retry.

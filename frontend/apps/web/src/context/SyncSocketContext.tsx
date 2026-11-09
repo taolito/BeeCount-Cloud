@@ -144,7 +144,8 @@ export function SyncSocketProvider({ children }: { children: ReactNode }) {
       const userId = syncUserIdRef.current
       if (!token || !userId) return
       void drainPull(token, userId, syncDeviceId).then((res) => {
-        if (res.changes.length > 0) {
+        // undefined = poller 那边已经在拉同一批,别重复广播 batch。
+        if (res && res.changes.length > 0) {
           emit({ type: 'sync_change_batch', changes: res.changes })
         }
       })
