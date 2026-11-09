@@ -237,7 +237,7 @@ export function OverviewPage() {
   // 不丢弃的话会把上一个月（不是当前选中的那个）的数据盖回模块里。
   const monthRanksSeq = useRef(0)
   const [monthRanksLoading, setMonthRanksLoading] = useState(false)
-  const loadMonthCategoryRanks = useCallback(async () => {
+  const loadMonthCategoryRanks = useCallback(async (opts?: { mask?: boolean }) => {
     const seq = ++monthRanksSeq.current
     if (!activeLedgerId) {
       setMonthExpenseRanks([])
@@ -245,7 +245,10 @@ export function OverviewPage() {
       setMonthRanksLoading(false)
       return
     }
-    setMonthRanksLoading(true)
+    // 遮罩只由「手动换月份」点亮（见 onDonutPeriodChange）。首帧、切账本、
+    // WS/poller 的自动刷新都直接原地换数据 —— 环本来就画着有效数据，盖一层
+    // 「加载中」等于每次自动刷新都把用户正在看的数字糊掉一下。
+    if (opts?.mask) setMonthRanksLoading(true)
     try {
       const tzOffsetMinutes = -new Date().getTimezoneOffset()
       const results = await Promise.allSettled([
@@ -278,6 +281,13 @@ export function OverviewPage() {
     // setMonthExpenseRanks / setMonthIncomeRanks 是 usePageCache 稳定 setter
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, activeLedgerId, donutPeriod])
+
+  // 手动换月份：先点亮遮罩，再改月份。月份没变就不会触发重拉，那种情况下
+  // 点亮等于没人来撤，所以只在真的换月时点亮。
+  const onDonutPeriodChange = useCallback((period: string) => {
+    if (period !== donutPeriod) setMonthRanksLoading(true)
+    setDonutPeriod(period)
+  }, [donutPeriod])
 
   useEffect(() => {
     void loadAccountsAndTags()
@@ -364,7 +374,7 @@ export function OverviewPage() {
       monthIncomeRanks={monthIncomeRanks}
       monthDonutPeriod={donutPeriod}
       monthDonutLoading={monthRanksLoading}
-      onMonthDonutPeriodChange={setDonutPeriod}
+      onMonthDonutPeriodChange={onDonutPeriodChange}
       currentYearSummary={currentYearSummary}
       currentYearSeries={currentYearSeries}
       allTimeSummary={allTimeSummary}

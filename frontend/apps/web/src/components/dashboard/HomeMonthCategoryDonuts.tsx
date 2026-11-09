@@ -24,7 +24,8 @@ interface Props {
   /** YYYY-MM —— 收支两个环共用同一个月份。 */
   period: string
   onPeriodChange: (period: string) => void
-  /** 换月份 / 换账本时后台重拉，用半透明遮罩盖住当前数据，加载完成后撤掉。 */
+  /** 手动换月份时由调用方点亮：半透明遮罩盖住旧数据，新一期落地后撤掉。
+   *  后台自动刷新不该传 true，环原地换数就行。 */
   loading?: boolean
   /** 账本全期没有收入（或没有支出）时，对应那个环整块不渲染。 */
   showExpense?: boolean
